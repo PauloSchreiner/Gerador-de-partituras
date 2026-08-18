@@ -11,6 +11,7 @@
 
   <div id="settings-overlay"></div>
 
+  <!-- ============================== SIDEBAR / OPÇÕES ============================== -->
   <aside id="settings">
     <div class="brand-header">
       <div class="brand"><span class="dot"></span><div><h1>Prática de Leitura à Primeira Vista</h1></div></div>
@@ -74,7 +75,6 @@
           <option value="groove">Groove Repetitivo</option>
           <option value="sequences">Padrões de Escala</option>
           <option value="pedal">Nota Pivô</option>
-          <option value="enclosures">Enclosures</option>
         </select>
       </div>
       <div class="hint" id="genModeHint" style="margin-bottom: 8px;">Aleatório: notas sorteadas de acordo com a escala, alcance e limites de salto.</div>
@@ -111,7 +111,9 @@
         <div><div class="prob-row"><label>Semínima</label><span id="lblWQuarter">100</span></div><input type="range" id="wQuarter" min="0" max="100" value="100"></div>
         <div><div class="prob-row"><label>Colcheia</label><span id="lblWEighth">0</span></div><input type="range" id="wEighth" min="0" max="100" value="0"></div>
         <div><div class="prob-row"><label>Semicolcheia</label><span id="lblWSixteenth">0</span></div><input type="range" id="wSixteenth" min="0" max="100" value="0"></div>
-        <div><div class="prob-row"><label>Permitir Pontuadas</label><span id="lblWDotted">0</span></div><input type="range" id="wDotted" min="0" max="100" value="0"></div>
+        <div><div class="prob-row"><label>Notas pontuadas</label><span id="lblWDotted">0</span></div><input type="range" id="wDotted" min="0" max="100" value="0"></div>
+        <div><div class="prob-row"><label>Pausas</label><span id="lblProbRest">5%</span></div><input type="range" id="probRest" min="0" max="100" value="5"></div>
+        <div><div class="prob-row"><label title="Injeta grupos de Tercinas substituindo o ritmo natural">Tercinas</label><span id="lblProbTriplet">0%</span></div><input type="range" id="probTriplet" min="0" max="100" value="0"></div>
       </div>
     </fieldset>
 
@@ -134,8 +136,6 @@
     <fieldset>
       <legend>Extra</legend>
       <div class="col">
-          <div><div class="prob-row"><label>Pausas</label><span id="lblProbRest">5%</span></div><input type="range" id="probRest" min="0" max="100" value="5"></div>
-          <div><div class="prob-row"><label title="Injeta grupos de Tercinas substituindo o ritmo natural">Tercinas</label><span id="lblProbTriplet">0%</span></div><input type="range" id="probTriplet" min="0" max="100" value="0"></div>
           <div><div class="prob-row"><label title="Cria síncopes ligando tempos fracos e cruzando compassos">Ligaduras de Valor (Síncopes)</label><span id="lblProbTie">0%</span></div><input type="range" id="probTie" min="0" max="100" value="0"></div>
           <div><div class="prob-row"><label title="Injeta notas meio tom distantes antes da nota alvo">Aproximação Cromática</label><span id="lblProbChromatic">0%</span></div><input type="range" id="probChromatic" min="0" max="100" value="0"></div>
           <div><div class="prob-row"><label>Ghost Notes (X)</label><span id="lblProbGhost">0%</span></div><input type="range" id="probGhost" min="0" max="100" value="0"></div>
@@ -147,7 +147,7 @@
       <legend>Volume e Áudio</legend>
       <div class="col">
           <div><div class="prob-row"><label>Volume do Metrônomo</label><span id="lblVolClick">100%</span></div><input type="range" id="volClick" min="0" max="100" value="100"></div>
-          <div><div class="prob-row"><label>Volume do Sintetizador</label><span id="lblVolSynth">100%</span></div><input type="range" id="volSynth" min="0" max="100" value="100"></div>
+          <div><div class="prob-row"><label>Volume do Sintetizador</label><span id="lblVolSynth">50%</span></div><input type="range" id="volSynth" min="0" max="100" value="50"></div>
       </div>
     </fieldset>
 
@@ -166,6 +166,7 @@
 
   </aside>
 
+  <!-- ============================== ÁREA PRINCIPAL E PARTITURA ============================== -->
   <main id="main">
     <div id="transport">
       <div style="display:flex; gap:8px;">

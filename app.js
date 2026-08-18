@@ -12,7 +12,6 @@ const triadState = { degree:0 };
 const grooveState = { pattern: null, patternLenMeasures: 1, measureInCycle: 0, cycleLength: 4, progression: [0,3,4,0] };
 let seqIndex = 0, seqStep = 0, seqDir = 1;
 let pedalIsRoot = true, pedalScaleIdx = 0, pedalDir = 1;
-let encPhase = 0, encTarget = null, encChordPos = 0;
 
 /**
  * ==========================================================================
@@ -143,15 +142,22 @@ function getCenterMidiForClef(clef) {
     return 50; 
 }
 
+// CORREÇÃO PENTATONICA: array 100% diatônico (7 notas) estritamente usado para encontrar as raízes dos acordes
+function diatonicPitchClasses() {
+    const steps = state.keyInfo.isMinor ? MINOR_STEPS : MAJOR_STEPS;
+    return steps.map(s => (state.keyInfo.rootPc + s) % 12);
+}
+
 function getChordSymbol(degree) {
     const suffixMaj = ["", "m", "m", "maj7", "7", "m", "dim"];
     const suffixMin = ["m", "dim", "maj7", "m", "m", "maj7", "7"];
     const suffix = state.keyInfo.isMinor ? suffixMin[degree] : suffixMaj[degree];
-    const chordRootPc = scalePitchClasses()[degree];
+    const chordRootPc = diatonicPitchClasses()[degree]; 
     const rootSpell = SPELLINGS[state.keyInfo.relMajor][chordRootPc];
     return rootSpell.letter.toUpperCase() + accToStr(rootSpell.acc) + suffix;
 }
 
+// Array filtrado para a parte melódica (usado em arpejos e sequências)
 function scalePitchClasses(){ 
     const steps = state.pentatonic ? 
         (state.keyInfo.isMinor ? MINOR_PENTA_STEPS : MAJOR_PENTA_STEPS) : 
@@ -167,7 +173,7 @@ function scaleSemitones() { return state.keyInfo.isMinor ? MINOR_STEPS : MAJOR_S
  */
 const state = {
   bpm: 60, countIn: true, noteAudio: true, clickAudio: true,
-  volClick: 1.0, volSynth: 1.0, 
+  volClick: 1.0, volSynth: 0.5, 
   keyInfo: KEYS[0], clef: 'bass', pentatonic: false, 
   positionMode: 'free', lowMidi: 28, highMidi: 48, strings: new Set(['E','A','D','G']), maxIntervalSemis: 12, 
   
@@ -349,11 +355,35 @@ if (intervalSlider) {
     });
 }
 
+function redrawTrackAfterThemeChange() {
+    if (!state.playing) {
+        clearTrack();
+        ensureBuffer(0);
+    } else {
+        const oldMeasures = [...measures];
+        measures = [];
+        if (scoreScroll) scoreScroll.innerHTML = '';
+        oldMeasures.forEach(m => {
+            const div = document.createElement('div');
+            div.className = 'measure';
+            div.style.left = m.leftPx + 'px';
+            if (scoreScroll) scoreScroll.appendChild(div);
+            m.div._blockEventsData ? renderBlockSVG(div, m.div._blockEventsData) : stopPlayback();
+            m.div = div;
+            measures.push(m);
+        });
+    }
+}
+
 safeAddListener('themeToggle', 'click', () => {
   const btn = document.getElementById('themeToggle');
-  if(document.documentElement.getAttribute('data-theme') === 'light'){ document.documentElement.removeAttribute('data-theme'); if(btn) btn.textContent = '☀️'; } 
-  else { document.documentElement.setAttribute('data-theme', 'light'); if(btn) btn.textContent = '🌙'; }
-  renderClefPanel(); if(!state.playing){ clearTrack(); ensureBuffer(0); }
+  if(document.documentElement.getAttribute('data-theme') === 'light'){ 
+      document.documentElement.removeAttribute('data-theme'); if(btn) btn.textContent = '☀️'; 
+  } else { 
+      document.documentElement.setAttribute('data-theme', 'light'); if(btn) btn.textContent = '🌙'; 
+  }
+  renderClefPanel(); 
+  redrawTrackAfterThemeChange();
 });
 
 safeAddListener('genMode', 'change', e => { 
@@ -460,18 +490,6 @@ function getPedalNote(pool, diatonicPool) {
   }
 }
 
-function getEnclosureNote(pool, prevMidi) {
-  if(encPhase === 0) {
-    const chordPcs = diatonicTriad(triadState.degree, true);
-    encTarget = nearestPitchOfClass(pool, chordPcs[encChordPos++ % chordPcs.length], prevMidi) || pickNextPitch(pool, prevMidi);
-    encPhase = 1; return encTarget + 1;
-  } else if(encPhase === 1) { 
-      encPhase = 2; return encTarget - 1; 
-  } else { 
-      encPhase = 0; return encTarget; 
-  }
-}
-
 /**
  * ==========================================================================
  * MÓDULO 7: GERADOR RÍTMICO CENTRAL
@@ -511,7 +529,6 @@ function generateRhythmForMeasure(){
   while (currentBeat < 4.0) {
     const beatsLeft = 4.0 - currentBeat;
     
-    // Tercinas (Probabilidade independente, sobrepõe as figuras normais)
     if (beatsLeft >= 1.0 && Math.random() < state.probs.triplets) {
         for (let i = 0; i < 3; i++) events.push({ durQuarters: 1/3, tripletGroup: 1, isRest: Math.random() < state.probs.rests });
         currentBeat += 1.0;
@@ -521,27 +538,22 @@ function generateRhythmForMeasure(){
     const candidates = [];
     const onStableBoundary = (Math.abs(currentBeat - 0.0) < 0.01 || Math.abs(currentBeat - 2.0) < 0.01);
 
-    // Semibreve (4 tempos - só na cabeça do compasso)
     if (Math.abs(currentBeat - 0.0) < 0.01 && beatsLeft >= 3.99 && state.rhythms.whole > 0) {
         candidates.push({ builder: () => [cellNote(4.0)], weight: state.rhythms.whole });
     }
     
-    // Mínima (2 tempos - só nas cabeças de compasso forte e meio do compasso)
     if (onStableBoundary && beatsLeft >= 1.99 && state.rhythms.half > 0) {
         candidates.push({ builder: () => [cellNote(2.0)], weight: state.rhythms.half });
         
-        // Mínima pontuada (3 tempos - só na cabeça)
         if (state.rhythms.dotted > 0 && Math.abs(currentBeat - 0.0) < 0.01 && beatsLeft >= 2.99) {
             candidates.push({ builder: () => [cellNote(3.0, true)], weight: (state.rhythms.half + state.rhythms.dotted) / 2 });
         }
     }
     
-    // Semínima pontuada + Colcheia (2 tempos agrupados)
     if (onStableBoundary && beatsLeft >= 1.99 && state.rhythms.quarter > 0 && state.rhythms.eighth > 0 && state.rhythms.dotted > 0) {
         candidates.push({ builder: () => [cellNote(1.5, true), cellNote(0.5)], weight: (state.rhythms.quarter + state.rhythms.eighth + state.rhythms.dotted) / 3 });
     }
     
-    // Células de 1 tempo (semínimas, colcheias, semicolcheias e combos fixos)
     if (beatsLeft >= 0.99) {
         if (state.rhythms.quarter > 0) candidates.push({ builder: () => [cellNote(1.0)], weight: state.rhythms.quarter });
         if (state.rhythms.eighth > 0) candidates.push({ builder: () => [cellNote(0.5), cellNote(0.5)], weight: state.rhythms.eighth });
@@ -663,19 +675,6 @@ function buildMeasure(isLastMeasureInBlock = false){
       } 
       else if(state.genMode === 'sequences') { ev.midi = getSequenceNote(diatonicPool) || pickNextPitch(pool, lastMidi); }
       else if(state.genMode === 'pedal') { ev.midi = getPedalNote(pool, diatonicPool) || pickNextPitch(pool, lastMidi); }
-      else if(state.genMode === 'enclosures') { 
-          if(encPhase === 0) {
-              const chordPcs = diatonicTriad(triadState.degree, true);
-              if (isFirstNote) ev.chordSymbol = getChordSymbol(triadState.degree);
-              encTarget = nearestPitchOfClass(pool, chordPcs[encChordPos++ % chordPcs.length], lastMidi) || pickNextPitch(pool, lastMidi);
-              encPhase = 1; ev.midi = encTarget + 1; 
-          } else if(encPhase === 1) { 
-              encPhase = 2; ev.midi = encTarget - 1; 
-          } else { 
-              encPhase = 0; ev.midi = encTarget; 
-          }
-          if (ev.midi == null || ev.midi < state.lowMidi || ev.midi > state.highMidi) ev.midi = pickNextPitch(pool, lastMidi);
-      }
       else { ev.midi = pickNextPitch(pool, lastMidi); } 
       
       lastMidi = ev.midi;
@@ -852,6 +851,8 @@ function renderBlockSVG(container, blockEvents){
   ctx.setFillStyle(getComputedStyle(document.documentElement).getPropertyValue('--text-0').trim() || '#e9ecf1');
   ctx.setStrokeStyle(getComputedStyle(document.documentElement).getPropertyValue('--staff').trim() || '#8a93a3');
 
+  container._blockEventsData = blockEvents;
+
   const allVexNotes = [];
 
   blockEvents.forEach((events, measureIndex) => {
@@ -926,7 +927,14 @@ function renderBlockSVG(container, blockEvents){
                             if (!e.isRest) e._vexNote.setStemDirection(stemDir);
                         });
                     }
-                    beams.push(new VF.Beam(notes));
+                    
+                    // CORREÇÃO: Apara as pausas das extremidades ANTES de desenhar as hastes (beams) nas quiálteras
+                    let start = 0; while(start < curTripletGroup.length && curTripletGroup[start].isRest) start++;
+                    let end = curTripletGroup.length - 1; while(end >= 0 && curTripletGroup[end].isRest) end--;
+                    if (end > start) {
+                        const beamEvents = curTripletGroup.slice(start, end + 1);
+                        beams.push(new VF.Beam(beamEvents.map(e => e._vexNote)));
+                    }
                 }
                 
                 curTripletGroup = []; 
@@ -1017,7 +1025,6 @@ function clearTrack(){
   measures = []; cumulativeBeats = 0; globalEventTimeline = [];
   lastMidi = null; pendingTieMidi = null; grooveState.pattern = null; grooveState.measureInCycle = 0;
   seqIndex = 0; seqStep = 0; seqDir = 1; pedalIsRoot = true; pedalScaleIdx = 0; pedalDir = 1;
-  encPhase = 0; encTarget = null; encChordPos = 0;
 }
 
 function generateAndScheduleNextBlock(){
@@ -1205,7 +1212,6 @@ function applyBpm(newBpm){
 safeAddListener('playPauseBtn', 'click', () => state.playing ? togglePause() : startPlayback() );
 safeAddListener('stopBtn', 'click', () => { if(state.playing) stopPlayback(); });
 
-// Função genérica para criar eventos de "Segurar" os botões de BPM
 function setupHoldButton(id, delta) {
     const btn = document.getElementById(id);
     if (!btn) return;
@@ -1215,8 +1221,8 @@ function setupHoldButton(id, delta) {
         if(e) { e.preventDefault(); e.stopPropagation(); }
         applyBpm(state.bpm + delta);
         timeout = setTimeout(() => {
-            timer = setInterval(() => applyBpm(state.bpm + delta), 80); // Frequência do clique contínuo
-        }, 300); // Atraso inicial antes de começar a repetir
+            timer = setInterval(() => applyBpm(state.bpm + delta), 80); 
+        }, 300); 
     };
     
     const stop = (e) => {
@@ -1229,7 +1235,6 @@ function setupHoldButton(id, delta) {
     btn.addEventListener('mouseup', stop);
     btn.addEventListener('mouseleave', stop);
     
-    // Suporte para touch em celulares
     btn.addEventListener('touchstart', start, {passive: false});
     btn.addEventListener('touchend', stop, {passive: false});
     btn.addEventListener('touchcancel', stop, {passive: false});

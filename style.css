@@ -76,13 +76,11 @@ input[type=range] { accent-color: var(--secondary); width: 100%; cursor: pointer
 .hint { font-size: 11px; color: var(--text-2); margin-top: 4px; line-height: 1.4; }
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; }
 
-/* Botões em forma de pílula (Cordas do Contrabaixo) */
 .pillrow { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
 .pill { background: var(--bg-3); color: var(--text-1); border: 1px solid var(--line); border-radius: 12px; padding: 4px 12px; font-size: 11.5px; font-family: var(--font-display); font-weight: 600; cursor: pointer; user-select: none; transition: all 0.2s; }
 .pill:hover { border-color: var(--text-2); color: var(--text-0); }
 .pill.active { background: var(--secondary); color: #000; border-color: var(--secondary-dim); }
 
-/* Linhas dos pesos e porcentagens - Ajustado para quebra de texto elegante */
 .prob-row { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 2px; gap: 8px; }
 .prob-row label { font-size: 12px; color: var(--text-1); line-height: 1.2; flex: 1; text-align: left; }
 .prob-row span { font-family: var(--font-mono); font-size: 11px; color: var(--secondary); font-weight: 600; white-space: nowrap; }
@@ -93,7 +91,8 @@ input[type=range] { accent-color: var(--secondary); width: 100%; cursor: pointer
 .transport-btn { display: flex; align-items: center; justify-content: center; gap: 8px; border: none; border-radius: 8px; font-family: var(--font-display); font-weight: 700; font-size: 14px; height: 36px; padding: 0 18px; cursor: pointer; letter-spacing: .3px; line-height: 1; transition: all 0.2s; }
 .transport-btn * { pointer-events: none; }
 
-/* Classes Estritas de Cores para Botões */
+#playPauseBtn { min-width: 140px; }
+
 .btn-green { background: var(--primary); color: #fff; box-shadow: 0 0 0 1px var(--primary-glow), 0 4px 14px -4px rgba(39, 97, 18, .5); }
 .btn-orange { background: var(--secondary); color: #000; box-shadow: 0 0 0 1px var(--secondary-dim), 0 4px 14px -4px rgba(217, 119, 6, .5); }
 .btn-green:active:not(:disabled), .btn-orange:active:not(:disabled) { transform: translateY(1px); }
@@ -110,7 +109,6 @@ input[type=range] { accent-color: var(--secondary); width: 100%; cursor: pointer
 .bpm-box .readout { font-family: var(--font-mono); font-size: 18px; color: var(--secondary); width: 46px; text-align: center; background: var(--bg-2); border: 1px solid var(--line); border-radius: 6px; height: 36px; display: flex; align-items: center; justify-content: center; font-weight: bold; }
 .bpm-box input[type=range] { width: 130px; }
 
-/* Layout da coluna com os botões +1/-1 BPM empilhados */
 .bpm-btns-col { display: flex; flex-direction: column; gap: 2px; }
 .bpm-btn { background: var(--bg-2); border: 1px solid var(--line); color: var(--text-0); width: 26px; height: 17px; border-radius: 4px; font-size: 9px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.1s; user-select: none; -webkit-user-select: none; touch-action: manipulation; }
 .bpm-btn:hover { background: var(--bg-3); }
