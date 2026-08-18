@@ -564,14 +564,11 @@ function generateRhythmForMeasure(){
         });
     }
 
-    // Se a lista de candidatos está vazia (ex: só tem mínima ativa e sobrou 1 tempo)
-    // O sistema insere pausa para completar o compasso e avança.
     if (candidates.length === 0) {
         let restDur = beatsLeft >= 1.0 ? 1.0 : beatsLeft;
         events.push(cellRest(restDur));
         currentBeat += restDur;
     } else {
-        // Seleção Ponderada
         const totalWeight = candidates.reduce((sum, c) => sum + c.weight, 0);
         let roll = Math.random() * totalWeight;
         let selectedBuilder = candidates[candidates.length - 1].builder;
@@ -1208,8 +1205,38 @@ function applyBpm(newBpm){
 safeAddListener('playPauseBtn', 'click', () => state.playing ? togglePause() : startPlayback() );
 safeAddListener('stopBtn', 'click', () => { if(state.playing) stopPlayback(); });
 
-safeAddListener('bpmDec', 'click', () => applyBpm(state.bpm - 1));
-safeAddListener('bpmInc', 'click', () => applyBpm(state.bpm + 1));
+// Função genérica para criar eventos de "Segurar" os botões de BPM
+function setupHoldButton(id, delta) {
+    const btn = document.getElementById(id);
+    if (!btn) return;
+    let timer = null, timeout = null;
+    
+    const start = (e) => {
+        if(e) { e.preventDefault(); e.stopPropagation(); }
+        applyBpm(state.bpm + delta);
+        timeout = setTimeout(() => {
+            timer = setInterval(() => applyBpm(state.bpm + delta), 80); // Frequência do clique contínuo
+        }, 300); // Atraso inicial antes de começar a repetir
+    };
+    
+    const stop = (e) => {
+        if(e) { e.preventDefault(); e.stopPropagation(); }
+        clearTimeout(timeout);
+        clearInterval(timer);
+    };
+    
+    btn.addEventListener('mousedown', start);
+    btn.addEventListener('mouseup', stop);
+    btn.addEventListener('mouseleave', stop);
+    
+    // Suporte para touch em celulares
+    btn.addEventListener('touchstart', start, {passive: false});
+    btn.addEventListener('touchend', stop, {passive: false});
+    btn.addEventListener('touchcancel', stop, {passive: false});
+}
+
+setupHoldButton('bpmDec', -1);
+setupHoldButton('bpmInc', 1);
 
 document.addEventListener('keydown', (e) => {
   if (e.code === 'Space') { 

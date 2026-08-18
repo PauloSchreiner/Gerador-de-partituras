@@ -76,9 +76,16 @@ input[type=range] { accent-color: var(--secondary); width: 100%; cursor: pointer
 .hint { font-size: 11px; color: var(--text-2); margin-top: 4px; line-height: 1.4; }
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; }
 
-.prob-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px; }
-.prob-row label { font-size: 12px; color: var(--text-1); }
-.prob-row span { font-family: var(--font-mono); font-size: 11px; color: var(--secondary); font-weight: 600; }
+/* Botões em forma de pílula (Cordas do Contrabaixo) */
+.pillrow { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+.pill { background: var(--bg-3); color: var(--text-1); border: 1px solid var(--line); border-radius: 12px; padding: 4px 12px; font-size: 11.5px; font-family: var(--font-display); font-weight: 600; cursor: pointer; user-select: none; transition: all 0.2s; }
+.pill:hover { border-color: var(--text-2); color: var(--text-0); }
+.pill.active { background: var(--secondary); color: #000; border-color: var(--secondary-dim); }
+
+/* Linhas dos pesos e porcentagens - Ajustado para quebra de texto elegante */
+.prob-row { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 2px; gap: 8px; }
+.prob-row label { font-size: 12px; color: var(--text-1); line-height: 1.2; flex: 1; text-align: left; }
+.prob-row span { font-family: var(--font-mono); font-size: 11px; color: var(--secondary); font-weight: 600; white-space: nowrap; }
 
 #main { position: relative; display: flex; flex-direction: column; background-color: var(--bg-0); min-width: 0; }
 #transport { display: flex; align-items: center; gap: 14px; padding: 14px 22px; border-bottom: 1px solid var(--line); background: var(--transport-grad); flex-wrap: wrap; z-index: 10; }
@@ -105,9 +112,9 @@ input[type=range] { accent-color: var(--secondary); width: 100%; cursor: pointer
 
 /* Layout da coluna com os botões +1/-1 BPM empilhados */
 .bpm-btns-col { display: flex; flex-direction: column; gap: 2px; }
-.bpm-btn { background: var(--bg-2); border: 1px solid var(--line); color: var(--text-0); width: 26px; height: 17px; border-radius: 4px; font-size: 9px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.1s; }
+.bpm-btn { background: var(--bg-2); border: 1px solid var(--line); color: var(--text-0); width: 26px; height: 17px; border-radius: 4px; font-size: 9px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.1s; user-select: none; -webkit-user-select: none; touch-action: manipulation; }
 .bpm-btn:hover { background: var(--bg-3); }
-.bpm-btn:active { transform: translateY(1px); }
+.bpm-btn:active { transform: translateY(1px); background: var(--bg-3); }
 
 .action-btn { display: flex; align-items: center; gap: 6px; background: var(--bg-2); border: 1px solid var(--line); color: var(--text-1); border-radius: 7px; font-size: 12.5px; cursor: pointer; height: 36px; padding: 0 14px; transition: background 0.2s, color 0.2s; }
 .action-btn:hover { background: var(--bg-3); color: var(--text-0); }
