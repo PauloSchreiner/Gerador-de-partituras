@@ -11,7 +11,6 @@
 
   <div id="settings-overlay"></div>
 
-  <!-- ============================== SIDEBAR / OPÇÕES ============================== -->
   <aside id="settings">
     <div class="brand-header">
       <div class="brand"><span class="dot"></span><div><h1>Prática de Leitura à Primeira Vista</h1></div></div>
@@ -104,64 +103,51 @@
     </fieldset>
 
     <fieldset>
-      <legend>Figuras rítmicas</legend>
-      <div class="row">
-        <label class="check"><input type="checkbox" id="rWhole"> Semibreve</label>
-        <label class="check"><input type="checkbox" id="rHalf"> Mínima</label>
-        <label class="check"><input type="checkbox" id="rQuarter" checked> Semínima</label>
-      </div>
-      <div class="row">
-        <label class="check"><input type="checkbox" id="rEighth"> Colcheia</label>
-        <label class="check"><input type="checkbox" id="rSixteenth"> Semicolcheia</label>
-      </div>
-      <div class="col" style="gap:4px; margin-top:6px;">
-        <label class="check"><input type="checkbox" id="rDotted"> Notas pontuadas</label>
+      <legend>Figuras Rítmicas</legend>
+      <div class="hint" style="margin-bottom:6px;">Ajuste o peso (chance de aparecer) de cada figura (0 a 100).</div>
+      <div class="col">
+        <div><div class="prob-row"><label>Semibreve</label><span id="lblWWhole">0</span></div><input type="range" id="wWhole" min="0" max="100" value="0"></div>
+        <div><div class="prob-row"><label>Mínima</label><span id="lblWHalf">0</span></div><input type="range" id="wHalf" min="0" max="100" value="0"></div>
+        <div><div class="prob-row"><label>Semínima</label><span id="lblWQuarter">100</span></div><input type="range" id="wQuarter" min="0" max="100" value="100"></div>
+        <div><div class="prob-row"><label>Colcheia</label><span id="lblWEighth">0</span></div><input type="range" id="wEighth" min="0" max="100" value="0"></div>
+        <div><div class="prob-row"><label>Semicolcheia</label><span id="lblWSixteenth">0</span></div><input type="range" id="wSixteenth" min="0" max="100" value="0"></div>
+        <div><div class="prob-row"><label>Permitir Pontuadas</label><span id="lblWDotted">0</span></div><input type="range" id="wDotted" min="0" max="100" value="0"></div>
       </div>
     </fieldset>
 
     <fieldset>
       <legend>Células Rítmicas Essenciais</legend>
-      <div class="hint" style="margin-bottom:6px;">Padrões fixos de 1 tempo, usados exatamente como definidos (sem pausas aleatórias) — ótimo para fixar leituras específicas.</div>
-      <div class="col" style="gap:6px;">
-        <label class="check"><input type="checkbox" id="cell_c1_four16"> 4 Semicolcheias</label>
-        <label class="check"><input type="checkbox" id="cell_c2_8_16_16"> 1 Colcheia e 2 Semicolcheias</label>
-        <label class="check"><input type="checkbox" id="cell_c3_16_16_8"> 2 Semicolcheias e 1 Colcheia</label>
-        <label class="check"><input type="checkbox" id="cell_c4_16_8_16"> 1 Semicolcheia, 1 Colcheia e 1 Semicolcheia</label>
-        <label class="check"><input type="checkbox" id="cell_c5_dot8_16"> Colcheia Pontuada e Semicolcheia</label>
-        <label class="check"><input type="checkbox" id="cell_c6_16_dot8"> Semicolcheia e Colcheia Pontuada</label>
-        <label class="check"><input type="checkbox" id="cell_c7_r16_three16"> Pausa de Semicolcheia + 3 Semicolcheias</label>
-        <label class="check"><input type="checkbox" id="cell_c8_8_r16_16"> 1 Colcheia + Pausa de Semicolcheia + 1 Semicolcheia</label>
-        <label class="check"><input type="checkbox" id="cell_c9_tripletQE" title="Requer leitura de tercinas: uma nota (tercina de semínima) ligada a outra, seguida de uma colcheia em tercina"> Semínima em Tercina + Colcheia em Tercina</label>
+      <div class="hint" style="margin-bottom:6px;">Padrões fixos de 1 tempo. Aumente para treinar uma leitura específica.</div>
+      <div class="col">
+        <div><div class="prob-row"><label>4 Semicolcheias</label><span id="lblC1">0</span></div><input type="range" id="w_c1" min="0" max="100" value="0"></div>
+        <div><div class="prob-row"><label>1 Colcheia + 2 Semicolcheias</label><span id="lblC2">0</span></div><input type="range" id="w_c2" min="0" max="100" value="0"></div>
+        <div><div class="prob-row"><label>2 Semicolcheias + 1 Colcheia</label><span id="lblC3">0</span></div><input type="range" id="w_c3" min="0" max="100" value="0"></div>
+        <div><div class="prob-row"><label>1 Semicolcheia + 1 Colcheia + 1 Semicolcheia</label><span id="lblC4">0</span></div><input type="range" id="w_c4" min="0" max="100" value="0"></div>
+        <div><div class="prob-row"><label>Colcheia Pontuada + Semicolcheia</label><span id="lblC5">0</span></div><input type="range" id="w_c5" min="0" max="100" value="0"></div>
+        <div><div class="prob-row"><label>Semicolcheia + Colcheia Pontuada</label><span id="lblC6">0</span></div><input type="range" id="w_c6" min="0" max="100" value="0"></div>
+        <div><div class="prob-row"><label>Pausa de Semicolcheia + 3 Semicolcheias</label><span id="lblC7">0</span></div><input type="range" id="w_c7" min="0" max="100" value="0"></div>
+        <div><div class="prob-row"><label>Colcheia + Pausa de Semicolcheia + Semicolcheia</label><span id="lblC8">0</span></div><input type="range" id="w_c8" min="0" max="100" value="0"></div>
+        <div><div class="prob-row"><label title="Semínima em Tercina + Colcheia em Tercina">Semínima + Colcheia (em Tercina)</label><span id="lblC9">0</span></div><input type="range" id="w_c9" min="0" max="100" value="0"></div>
       </div>
     </fieldset>
 
     <fieldset>
-      <legend>Ajustes de frequência</legend>
+      <legend>Extra</legend>
       <div class="col">
-          <div>
-            <div class="prob-row"><label>Pausas</label><span id="lblProbRest">5%</span></div>
-            <input type="range" id="probRest" min="0" max="100" value="5">
-          </div>
-          <div>
-            <div class="prob-row"><label title="Injeta grupos de Tercinas substituindo o ritmo natural">Tercinas</label><span id="lblProbTriplet">0%</span></div>
-            <input type="range" id="probTriplet" min="0" max="100" value="0">
-          </div>
-          <div>
-            <div class="prob-row"><label title="Cria síncopes ligando tempos fracos e cruzando compassos">Ligaduras de Valor (Síncopes)</label><span id="lblProbTie">0%</span></div>
-            <input type="range" id="probTie" min="0" max="100" value="0">
-          </div>
-          <div>
-            <div class="prob-row"><label title="Injeta notas meio tom distantes antes da nota alvo">Aproximação Cromática</label><span id="lblProbChromatic">0%</span></div>
-            <input type="range" id="probChromatic" min="0" max="100" value="0">
-          </div>
-          <div>
-            <div class="prob-row"><label>Ghost Notes (X)</label><span id="lblProbGhost">0%</span></div>
-            <input type="range" id="probGhost" min="0" max="100" value="0">
-          </div>
-          <div>
-            <div class="prob-row"><label>Staccato</label><span id="lblProbStaccato">0%</span></div>
-            <input type="range" id="probStaccato" min="0" max="100" value="0">
-          </div>
+          <div><div class="prob-row"><label>Pausas</label><span id="lblProbRest">5%</span></div><input type="range" id="probRest" min="0" max="100" value="5"></div>
+          <div><div class="prob-row"><label title="Injeta grupos de Tercinas substituindo o ritmo natural">Tercinas</label><span id="lblProbTriplet">0%</span></div><input type="range" id="probTriplet" min="0" max="100" value="0"></div>
+          <div><div class="prob-row"><label title="Cria síncopes ligando tempos fracos e cruzando compassos">Ligaduras de Valor (Síncopes)</label><span id="lblProbTie">0%</span></div><input type="range" id="probTie" min="0" max="100" value="0"></div>
+          <div><div class="prob-row"><label title="Injeta notas meio tom distantes antes da nota alvo">Aproximação Cromática</label><span id="lblProbChromatic">0%</span></div><input type="range" id="probChromatic" min="0" max="100" value="0"></div>
+          <div><div class="prob-row"><label>Ghost Notes (X)</label><span id="lblProbGhost">0%</span></div><input type="range" id="probGhost" min="0" max="100" value="0"></div>
+          <div><div class="prob-row"><label>Staccato</label><span id="lblProbStaccato">0%</span></div><input type="range" id="probStaccato" min="0" max="100" value="0"></div>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Volume e Áudio</legend>
+      <div class="col">
+          <div><div class="prob-row"><label>Volume do Metrônomo</label><span id="lblVolClick">100%</span></div><input type="range" id="volClick" min="0" max="100" value="100"></div>
+          <div><div class="prob-row"><label>Volume do Sintetizador</label><span id="lblVolSynth">100%</span></div><input type="range" id="volSynth" min="0" max="100" value="100"></div>
       </div>
     </fieldset>
 
@@ -180,7 +166,6 @@
 
   </aside>
 
-  <!-- ============================== ÁREA PRINCIPAL E PARTITURA ============================== -->
   <main id="main">
     <div id="transport">
       <div style="display:flex; gap:8px;">
@@ -195,6 +180,10 @@
       <div class="bpm-box">
         <span class="field-label" style="margin-right: -4px;">BPM</span>
         <input type="range" id="bpmSlider" min="30" max="220" value="60">
+        <div class="bpm-btns-col">
+          <button id="bpmInc" class="bpm-btn" title="+1 BPM">▲</button>
+          <button id="bpmDec" class="bpm-btn" title="-1 BPM">▼</button>
+        </div>
         <input type="number" class="readout" id="bpmReadout" min="30" max="220" value="60">
       </div>
       

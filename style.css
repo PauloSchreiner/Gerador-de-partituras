@@ -103,6 +103,12 @@ input[type=range] { accent-color: var(--secondary); width: 100%; cursor: pointer
 .bpm-box .readout { font-family: var(--font-mono); font-size: 18px; color: var(--secondary); width: 46px; text-align: center; background: var(--bg-2); border: 1px solid var(--line); border-radius: 6px; height: 36px; display: flex; align-items: center; justify-content: center; font-weight: bold; }
 .bpm-box input[type=range] { width: 130px; }
 
+/* Layout da coluna com os botões +1/-1 BPM empilhados */
+.bpm-btns-col { display: flex; flex-direction: column; gap: 2px; }
+.bpm-btn { background: var(--bg-2); border: 1px solid var(--line); color: var(--text-0); width: 26px; height: 17px; border-radius: 4px; font-size: 9px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.1s; }
+.bpm-btn:hover { background: var(--bg-3); }
+.bpm-btn:active { transform: translateY(1px); }
+
 .action-btn { display: flex; align-items: center; gap: 6px; background: var(--bg-2); border: 1px solid var(--line); color: var(--text-1); border-radius: 7px; font-size: 12.5px; cursor: pointer; height: 36px; padding: 0 14px; transition: background 0.2s, color 0.2s; }
 .action-btn:hover { background: var(--bg-3); color: var(--text-0); }
 .action-btn .led { width: 8px; height: 8px; border-radius: 50%; background: #3a4150; transition: background .15s, box-shadow .15s; }

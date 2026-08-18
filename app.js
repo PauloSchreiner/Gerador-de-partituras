@@ -167,24 +167,14 @@ function scaleSemitones() { return state.keyInfo.isMinor ? MINOR_STEPS : MAJOR_S
  */
 const state = {
   bpm: 60, countIn: true, noteAudio: true, clickAudio: true,
+  volClick: 1.0, volSynth: 1.0, 
   keyInfo: KEYS[0], clef: 'bass', pentatonic: false, 
   positionMode: 'free', lowMidi: 28, highMidi: 48, strings: new Set(['E','A','D','G']), maxIntervalSemis: 12, 
-  rhythms: { whole:false, half:false, quarter:true, eighth:false, sixteenth:false, dotted:false },
-  // Essential rhythmic cells (feature): each is a fixed, canonical 1-beat
-  // rhythmic shape used for sight-reading drills. Unlike the generic
-  // rhythms above, these are NOT passed through the random rest
-  // probability — their note/rest layout IS the pattern being taught, so
-  // randomizing it would defeat the purpose. All default to off (opt-in).
+  
+  rhythms: { whole: 0, half: 0, quarter: 100, eighth: 0, sixteenth: 0, dotted: 0 },
   rhythmCells: {
-      c1_four16: false,        // 4 semicolcheias
-      c2_8_16_16: false,       // 1 colcheia + 2 semicolcheias
-      c3_16_16_8: false,       // 2 semicolcheias + 1 colcheia
-      c4_16_8_16: false,       // semicolcheia + colcheia + semicolcheia
-      c5_dot8_16: false,       // colcheia pontuada + semicolcheia
-      c6_16_dot8: false,       // semicolcheia + colcheia pontuada
-      c7_r16_three16: false,   // pausa de semicolcheia + 3 semicolcheias
-      c8_8_r16_16: false,      // colcheia + pausa de semicolcheia + semicolcheia
-      c9_tripletQE: false,     // semínima em tercina + colcheia em tercina
+      c1_four16: 0, c2_8_16_16: 0, c3_16_16_8: 0, c4_16_8_16: 0, 
+      c5_dot8_16: 0, c6_16_dot8: 0, c7_r16_three16: 0, c8_8_r16_16: 0, c9_tripletQE: 0,
   },
   probs: { rests: 0.05, triplets: 0.0, ties: 0.0, chromatic: 0.0, ghost: 0.0, staccato: 0.0 },
   genMode: 'random', seqPattern: 'thirds',
@@ -194,7 +184,6 @@ const state = {
 /**
  * ==========================================================================
  * MÓDULO 5: CONTROLES DA INTERFACE DO USUÁRIO E ATUALIZAÇÕES VISUAIS
- * (Segurança Adicional contra Null References)
  * ==========================================================================
  */
 function safeAddListener(id, eventType, callback) {
@@ -290,6 +279,44 @@ syncProb('probChromatic', 'chromatic', 'lblProbChromatic');
 syncProb('probGhost', 'ghost', 'lblProbGhost');
 syncProb('probStaccato', 'staccato', 'lblProbStaccato');
 
+function syncWeight(id, stateObj, stateKey, lblId) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('input', () => {
+        stateObj[stateKey] = parseInt(el.value, 10);
+        const lbl = document.getElementById(lblId);
+        if (lbl) lbl.textContent = el.value;
+    });
+}
+syncWeight('wWhole', state.rhythms, 'whole', 'lblWWhole');
+syncWeight('wHalf', state.rhythms, 'half', 'lblWHalf');
+syncWeight('wQuarter', state.rhythms, 'quarter', 'lblWQuarter');
+syncWeight('wEighth', state.rhythms, 'eighth', 'lblWEighth');
+syncWeight('wSixteenth', state.rhythms, 'sixteenth', 'lblWSixteenth');
+syncWeight('wDotted', state.rhythms, 'dotted', 'lblWDotted');
+
+syncWeight('w_c1', state.rhythmCells, 'c1_four16', 'lblC1');
+syncWeight('w_c2', state.rhythmCells, 'c2_8_16_16', 'lblC2');
+syncWeight('w_c3', state.rhythmCells, 'c3_16_16_8', 'lblC3');
+syncWeight('w_c4', state.rhythmCells, 'c4_16_8_16', 'lblC4');
+syncWeight('w_c5', state.rhythmCells, 'c5_dot8_16', 'lblC5');
+syncWeight('w_c6', state.rhythmCells, 'c6_16_dot8', 'lblC6');
+syncWeight('w_c7', state.rhythmCells, 'c7_r16_three16', 'lblC7');
+syncWeight('w_c8', state.rhythmCells, 'c8_8_r16_16', 'lblC8');
+syncWeight('w_c9', state.rhythmCells, 'c9_tripletQE', 'lblC9');
+
+function syncVolume(id, stateKey, lblId) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('input', () => {
+        state[stateKey] = parseInt(el.value, 10) / 100;
+        const lbl = document.getElementById(lblId);
+        if (lbl) lbl.textContent = el.value + '%';
+    });
+}
+syncVolume('volClick', 'volClick', 'lblVolClick');
+syncVolume('volSynth', 'volSynth', 'lblVolSynth');
+
 safeAddListener('pentaToggle', 'change', e => state.pentatonic = e.target.checked);
 
 const positionModeSel = document.getElementById('positionMode'), rangeRow = document.getElementById('rangeRow');
@@ -328,24 +355,6 @@ safeAddListener('themeToggle', 'click', () => {
   else { document.documentElement.setAttribute('data-theme', 'light'); if(btn) btn.textContent = '🌙'; }
   renderClefPanel(); if(!state.playing){ clearTrack(); ensureBuffer(0); }
 });
-
-function wireRhythmCheckbox(id, key){ 
-    const cb = document.getElementById(id);
-    if (!cb) return;
-    cb.addEventListener('change', e => state.rhythms[key] = e.target.checked); 
-}
-wireRhythmCheckbox('rWhole','whole'); wireRhythmCheckbox('rHalf','half'); wireRhythmCheckbox('rQuarter','quarter');
-wireRhythmCheckbox('rEighth','eighth'); wireRhythmCheckbox('rSixteenth','sixteenth'); wireRhythmCheckbox('rDotted','dotted');
-
-// Essential rhythmic cells (feature): each checkbox id is "cell_<key>",
-// matching the keys used in state.rhythmCells / ESSENTIAL_CELL_BUILDERS.
-function wireRhythmCellCheckbox(key){
-    const cb = document.getElementById('cell_' + key);
-    if (!cb) return;
-    cb.addEventListener('change', e => { state.rhythmCells[key] = e.target.checked; });
-}
-['c1_four16','c2_8_16_16','c3_16_16_8','c4_16_8_16','c5_dot8_16','c6_16_dot8','c7_r16_three16','c8_8_r16_16','c9_tripletQE']
-    .forEach(wireRhythmCellCheckbox);
 
 safeAddListener('genMode', 'change', e => { 
   state.genMode = e.target.value; grooveState.pattern = null; grooveState.measureInCycle = 0; 
@@ -467,48 +476,11 @@ function getEnclosureNote(pool, prevMidi) {
  * ==========================================================================
  * MÓDULO 7: GERADOR RÍTMICO CENTRAL
  * ==========================================================================
- * Generation strategy ("correct by construction"): in 4/4, every measure
- * is built by walking beat-by-beat (0, 1, 2, 3) and, at each stop, either
- * placing a larger figure that is only allowed to START on a metrically
- * stable position (half note / dotted half on beat 0 or 2 only — never
- * mid-beat, so it can never straddle the invisible beat-2 barline without
- * a legal reason to), or filling exactly ONE beat with a "beat cell" —
- * a short list of durations that always sums to exactly 1.0 quarter note.
- *
- * Because every beat cell sums to exactly 1 beat, and every multi-beat
- * figure only starts on an allowed boundary, the resulting measure's total
- * duration is guaranteed to equal the time signature by construction —
- * there is no need to "repair" the sum afterward. The separate
- * merge/slice/factor pass further down (in buildMeasure) still exists,
- * but only to safely handle *ties* that are randomly injected across beat/
- * measure boundaries (state.probs.ties) — not to fix up bad totals.
- * ==========================================================================
  */
 
-/** A single, non-rest, non-tied note/rest of the given duration. */
 function cellNote(dur, isDotted){ return { durQuarters: dur, isDotted: !!isDotted, isRest: Math.random() < state.probs.rests }; }
 function cellRest(dur){ return { durQuarters: dur, isRest: true }; }
 
-// ---- Generic 1-beat cells (existing behaviour, gated by the classic
-// "Figuras rítmicas" checkboxes). Each note here still rolls the ordinary
-// rest probability independently, same as before this revision.
-function buildGenericBeatCandidates(){
-  const candidates = [];
-  if (state.rhythms.quarter) candidates.push(() => [cellNote(1.0)]);
-  if (state.rhythms.eighth) candidates.push(() => [cellNote(0.5), cellNote(0.5)]);
-  if (state.rhythms.sixteenth) candidates.push(() => [cellNote(0.25), cellNote(0.25), cellNote(0.25), cellNote(0.25)]);
-  if (state.rhythms.eighth && state.rhythms.sixteenth) {
-    candidates.push(() => [cellNote(0.5), cellNote(0.25), cellNote(0.25)]);
-    candidates.push(() => [cellNote(0.25), cellNote(0.25), cellNote(0.5)]);
-    if (state.rhythms.dotted) candidates.push(() => [cellNote(0.75, true), cellNote(0.25)]);
-  }
-  return candidates;
-}
-
-// ---- Essential rhythmic cells (new feature): fixed canonical 1-beat
-// shapes, used exactly as defined (no random rest injection — the
-// note/rest layout below IS the pattern being drilled). Each entry maps
-// to its `state.rhythmCells` checkbox key.
 const ESSENTIAL_CELL_BUILDERS = {
   c1_four16: () => [cellNote(0.25), cellNote(0.25), cellNote(0.25), cellNote(0.25)].map(e => ({ ...e, isRest: false })),
   c2_8_16_16: () => [{ durQuarters:0.5, isRest:false }, { durQuarters:0.25, isRest:false }, { durQuarters:0.25, isRest:false }],
@@ -518,87 +490,106 @@ const ESSENTIAL_CELL_BUILDERS = {
   c6_16_dot8: () => [{ durQuarters:0.25, isRest:false }, { durQuarters:0.75, isDotted:true, isRest:false }],
   c7_r16_three16: () => [cellRest(0.25), { durQuarters:0.25, isRest:false }, { durQuarters:0.25, isRest:false }, { durQuarters:0.25, isRest:false }],
   c8_8_r16_16: () => [{ durQuarters:0.5, isRest:false }, cellRest(0.25), { durQuarters:0.25, isRest:false }],
-  // "Semínima em tercina + colcheia em tercina": notated as three eighth-
-  // note triplet slots (the existing tripletGroup:1 machinery already
-  // beams/tuplets these correctly). The first two slots are forced-tied
-  // together (same pitch) to sound as the "quarter-note triplet", and the
-  // third slot is the separate "eighth-note triplet". See buildMeasure's
-  // pitch-assignment loop for how `copyPitchFromPrev` resolves the tied
-  // pitch, and the final tie-drawing pass for how the visual tie is drawn.
   c9_tripletQE: () => [
-    { durQuarters: 1/3, tripletGroup: 1, isRest: false, tieToNext: true },
-    { durQuarters: 1/3, tripletGroup: 1, isRest: false, copyPitchFromPrev: true },
+    { durQuarters: 2/3, tripletGroup: 2, isRest: false },
     { durQuarters: 1/3, tripletGroup: 1, isRest: false },
   ],
 };
 
 function hasAnyRhythmFigureEnabled(){
   const r = state.rhythms;
-  if (r.whole || r.half || r.quarter || r.eighth || r.sixteenth) return true;
-  return Object.keys(ESSENTIAL_CELL_BUILDERS).some(key => state.rhythmCells[key]);
-}
-
-/** Picks and instantiates one 1-beat cell from every currently-enabled candidate (generic + essential). Returns null if nothing is enabled. */
-function pickBeatCell(){
-  const candidates = buildGenericBeatCandidates();
-  Object.keys(ESSENTIAL_CELL_BUILDERS).forEach(key => {
-    if (state.rhythmCells[key]) candidates.push(ESSENTIAL_CELL_BUILDERS[key]);
-  });
-  if (candidates.length === 0) return null;
-  return candidates[Math.floor(Math.random() * candidates.length)]();
+  if (r.whole > 0 || r.half > 0 || r.quarter > 0 || r.eighth > 0 || r.sixteenth > 0) return true;
+  return Object.keys(ESSENTIAL_CELL_BUILDERS).some(key => state.rhythmCells[key] > 0);
 }
 
 function generateRhythmForMeasure(){
-  // Rest hierarchy rule: a measure with literally nothing enabled to
-  // generate is not silently filled with quarter notes — it is always a
-  // single whole-measure rest, regardless of the time signature's face
-  // value (here fixed at 4/4).
   if (!hasAnyRhythmFigureEnabled()) return [cellRest(4.0)];
 
   const events = [];
   let currentBeat = 0;
 
-  if (state.rhythms.whole && Math.random() < 0.1) {
-      events.push(cellNote(4.0));
-      return events;
-  }
-
   while (currentBeat < 4.0) {
     const beatsLeft = 4.0 - currentBeat;
-    const onStableBoundary = currentBeat === 0 || currentBeat === 2.0; // only legal start points for half-measure figures
-
-    if (state.rhythms.half && beatsLeft >= 2.0 && onStableBoundary && Math.random() < 0.25) {
-        // Dotted half only ever starts at beat 0 (the only point from which
-        // 3 beats fit without crossing the mid-measure axis illegally).
-        if (state.rhythms.dotted && currentBeat === 0 && beatsLeft >= 3.0 && Math.random() < 0.3) {
-            events.push(cellNote(3.0, true));
-            currentBeat += 3.0;
-            continue;
-        }
-        events.push(cellNote(2.0));
-        currentBeat += 2.0;
-        continue;
-    }
-
-    // Dotted quarter + eighth ("long-short") is also restricted to a
-    // stable boundary (beat 0 or 2) so it can never straddle the beat-2
-    // axis — e.g. starting at beat 1 would run 1.0→2.5, crossing it.
-    if (state.rhythms.quarter && state.rhythms.eighth && state.rhythms.dotted && beatsLeft >= 2.0 && onStableBoundary && Math.random() < 0.25) {
-        events.push(cellNote(1.5, true));
-        events.push(cellNote(0.5));
-        currentBeat += 2.0;
-        continue;
-    }
-
-    if (Math.random() < state.probs.triplets) {
+    
+    // Tercinas (Probabilidade independente, sobrepõe as figuras normais)
+    if (beatsLeft >= 1.0 && Math.random() < state.probs.triplets) {
         for (let i = 0; i < 3; i++) events.push({ durQuarters: 1/3, tripletGroup: 1, isRest: Math.random() < state.probs.rests });
-    } else {
-        const cell = pickBeatCell();
-        if (cell) events.push(...cell);
-        else events.push(cellNote(1.0)); // pragmatic safety net; see hasAnyRhythmFigureEnabled above
+        currentBeat += 1.0;
+        continue;
     }
 
-    currentBeat += 1.0;
+    const candidates = [];
+    const onStableBoundary = (Math.abs(currentBeat - 0.0) < 0.01 || Math.abs(currentBeat - 2.0) < 0.01);
+
+    // Semibreve (4 tempos - só na cabeça do compasso)
+    if (Math.abs(currentBeat - 0.0) < 0.01 && beatsLeft >= 3.99 && state.rhythms.whole > 0) {
+        candidates.push({ builder: () => [cellNote(4.0)], weight: state.rhythms.whole });
+    }
+    
+    // Mínima (2 tempos - só nas cabeças de compasso forte e meio do compasso)
+    if (onStableBoundary && beatsLeft >= 1.99 && state.rhythms.half > 0) {
+        candidates.push({ builder: () => [cellNote(2.0)], weight: state.rhythms.half });
+        
+        // Mínima pontuada (3 tempos - só na cabeça)
+        if (state.rhythms.dotted > 0 && Math.abs(currentBeat - 0.0) < 0.01 && beatsLeft >= 2.99) {
+            candidates.push({ builder: () => [cellNote(3.0, true)], weight: (state.rhythms.half + state.rhythms.dotted) / 2 });
+        }
+    }
+    
+    // Semínima pontuada + Colcheia (2 tempos agrupados)
+    if (onStableBoundary && beatsLeft >= 1.99 && state.rhythms.quarter > 0 && state.rhythms.eighth > 0 && state.rhythms.dotted > 0) {
+        candidates.push({ builder: () => [cellNote(1.5, true), cellNote(0.5)], weight: (state.rhythms.quarter + state.rhythms.eighth + state.rhythms.dotted) / 3 });
+    }
+    
+    // Células de 1 tempo (semínimas, colcheias, semicolcheias e combos fixos)
+    if (beatsLeft >= 0.99) {
+        if (state.rhythms.quarter > 0) candidates.push({ builder: () => [cellNote(1.0)], weight: state.rhythms.quarter });
+        if (state.rhythms.eighth > 0) candidates.push({ builder: () => [cellNote(0.5), cellNote(0.5)], weight: state.rhythms.eighth });
+        if (state.rhythms.sixteenth > 0) candidates.push({ builder: () => [cellNote(0.25), cellNote(0.25), cellNote(0.25), cellNote(0.25)], weight: state.rhythms.sixteenth });
+        
+        if (state.rhythms.eighth > 0 && state.rhythms.sixteenth > 0) {
+            const wMixed = (state.rhythms.eighth + state.rhythms.sixteenth) / 2;
+            candidates.push({ builder: () => [cellNote(0.5), cellNote(0.25), cellNote(0.25)], weight: wMixed });
+            candidates.push({ builder: () => [cellNote(0.25), cellNote(0.25), cellNote(0.5)], weight: wMixed });
+            if (state.rhythms.dotted > 0) {
+                const wDotted = (state.rhythms.eighth + state.rhythms.sixteenth + state.rhythms.dotted) / 3;
+                candidates.push({ builder: () => [cellNote(0.75, true), cellNote(0.25)], weight: wDotted });
+            }
+        }
+
+        Object.keys(ESSENTIAL_CELL_BUILDERS).forEach(key => {
+            if (state.rhythmCells[key] > 0) {
+                candidates.push({ builder: ESSENTIAL_CELL_BUILDERS[key], weight: state.rhythmCells[key] });
+            }
+        });
+    }
+
+    // Se a lista de candidatos está vazia (ex: só tem mínima ativa e sobrou 1 tempo)
+    // O sistema insere pausa para completar o compasso e avança.
+    if (candidates.length === 0) {
+        let restDur = beatsLeft >= 1.0 ? 1.0 : beatsLeft;
+        events.push(cellRest(restDur));
+        currentBeat += restDur;
+    } else {
+        // Seleção Ponderada
+        const totalWeight = candidates.reduce((sum, c) => sum + c.weight, 0);
+        let roll = Math.random() * totalWeight;
+        let selectedBuilder = candidates[candidates.length - 1].builder;
+        
+        for (const c of candidates) {
+            if (roll < c.weight) {
+                selectedBuilder = c.builder;
+                break;
+            }
+            roll -= c.weight;
+        }
+        
+        const built = selectedBuilder();
+        events.push(...built);
+        
+        const dur = built.reduce((sum, e) => sum + e.durQuarters, 0);
+        currentBeat += dur;
+    }
   }
   return events;
 }
@@ -654,24 +645,8 @@ function buildMeasure(isLastMeasureInBlock = false){
           ev.midi = null; continue;
       }
       
-      // Cell 9 ("semínima em tercina + colcheia em tercina"): the second
-      // triplet slot must sound the exact same pitch as the first (they're
-      // tied into one note), so it skips normal pitch generation entirely.
-      if (ev.copyPitchFromPrev) {
-          ev.midi = lastMidi;
-          ev.tiedFromPrev = true;
-          lastMidi = ev.midi;
-          isFirstNote = false;
-          continue;
-      }
-
       if (isFirstNote && pendingTieMidi !== null) {
           ev.midi = pendingTieMidi;
-          // BUG FIX: the original code returned here without updating
-          // `lastMidi`, so every melodic algorithm right after a
-          // cross-measure tie would pick its next pitch relative to a
-          // stale (or null) `lastMidi` instead of the note that was just
-          // sounded — breaking interval/leap continuity right after a tie.
           lastMidi = ev.midi;
           isFirstNote = false;
           continue; 
@@ -851,32 +826,15 @@ function durToVexCode(q){
   return '8'; 
 }
 
-/**
- * Compatibility shim for VF.StaveNote#addModifier.
- *
- * BUG FIX: the vendored vexflow.js is v3.0.9, whose StaveNote#addModifier
- * signature is (index, modifier) — the index comes FIRST. VexFlow 4.x
- * (which this file was originally written against) uses the opposite
- * order, (modifier, index). Calling it with the wrong order silently
- * hands the numeric index to `modifier.setNote(...)`, and since a number
- * has no such method you get "e.setNote is not a function" deep inside
- * vexflow.js — exactly the crash reported when adding a Dot/Articulation/
- * Annotation modifier.
- *
- * Rather than hard-coding one order (which would just break again the
- * next time someone drops in a different vexflow.js build), we detect the
- * actual order this build expects once, using a disposable probe note,
- * and reuse that answer for every subsequent addModifier call.
- */
 const NOTE_MODIFIER_ORDER = (function detectAddModifierOrder(){
   try {
     const VF = Vex.Flow;
     const probeNote = new VF.StaveNote({ keys: ['c/4'], duration: 'q' });
     const probeDot = new VF.Dot();
-    probeNote.addModifier(probeDot, 0); // try the VexFlow 4.x order first
+    probeNote.addModifier(probeDot, 0); 
     return 'modifier-first';
   } catch (e) {
-    return 'index-first'; // VexFlow 3.x (and older) order
+    return 'index-first'; 
   }
 })();
 
@@ -906,7 +864,7 @@ function renderBlockSVG(container, blockEvents){
       stave.setContext(ctx).draw();
 
       const vexNotes = [], tuplets = [], beams = [];
-      let currentBeat = 0, curTripletGroup = [];
+      let currentBeat = 0, curTripletGroup = [], curTripletDur = 0;
       const beatGroups = {}; 
 
       events.forEach((ev) => {
@@ -927,21 +885,18 @@ function renderBlockSVG(container, blockEvents){
         if(ev.isGhost && !ev.isRest) noteOpts.type = 'x';
         const note = new VF.StaveNote(noteOpts);
         
-        // Modifiers go through addNoteModifier() (see detectAddModifierOrder
-        // above) instead of calling note.addModifier() directly, so this
-        // works regardless of which VexFlow major version is vendored.
         if(ev.isDotted) {
             addNoteModifier(note, new VF.Dot(), 0);
         }
         if(!ev.isRest && ev.isStaccato) {
             const art = new VF.Articulation('a.');
-            art.setPosition(3); // VF.Modifier.Position.ABOVE
+            art.setPosition(3); 
             addNoteModifier(note, art, 0);
         }
         if(ev.chordSymbol && !ev.isRest) {
             const anno = new VF.Annotation(ev.chordSymbol);
             anno.setFont('sans-serif', 12, 'bold');
-            anno.setVerticalJustification(1); // VF.Annotation.VerticalJustify.TOP
+            anno.setVerticalJustification(1); 
             addNoteModifier(note, anno, 0);
         }
         
@@ -951,12 +906,17 @@ function renderBlockSVG(container, blockEvents){
         
         if(ev.tripletGroup) { 
             curTripletGroup.push(ev);
-            if(curTripletGroup.length === 3) {
+            curTripletDur += ev.durQuarters; 
+            
+            if(curTripletDur >= 0.99) {
                 const notes = curTripletGroup.map(e => e._vexNote);
-                tuplets.push(new VF.Tuplet(notes));
+                
+                tuplets.push(new VF.Tuplet(notes, { num_notes: 3, notes_occupied: 2 }));
                 
                 const realEvents = curTripletGroup.filter(e => !e.isRest);
-                if (realEvents.length >= 1 && ev.tripletGroup <= 1) {
+                const allShort = curTripletGroup.every(e => e.tripletGroup <= 1);
+                
+                if (realEvents.length >= 1 && allShort) {
                     if (realEvents.length >= 2) {
                         const centerMidi = getCenterMidiForClef(state.clef);
                         let maxMidi = -100, minMidi = 200;
@@ -965,11 +925,15 @@ function renderBlockSVG(container, blockEvents){
                             if (e.midi < minMidi) minMidi = e.midi;
                         });
                         const stemDir = (maxMidi + minMidi) / 2 >= centerMidi ? -1 : 1;
-                        curTripletGroup.forEach(e => e._vexNote.setStemDirection(stemDir));
+                        curTripletGroup.forEach(e => {
+                            if (!e.isRest) e._vexNote.setStemDirection(stemDir);
+                        });
                     }
                     beams.push(new VF.Beam(notes));
                 }
+                
                 curTripletGroup = []; 
+                curTripletDur = 0;
             } 
         } 
         else if (ev.durQuarters < 1.0) {
@@ -1135,25 +1099,28 @@ function ensureAudio(){
 function stopAllAudioNodes() { scheduledNodes.forEach(n => { try{ n.stop(); }catch(e){} }); scheduledNodes.length = 0; }
 
 function playClick(time, accent){
-  if(!state.clickAudio) return;
+  if(!state.clickAudio || state.volClick <= 0) return;
   const osc = audioCtx.createOscillator(), gain = audioCtx.createGain(); 
   osc.type = 'square'; osc.frequency.value = accent ? 1500 : 1000;
-  gain.gain.setValueAtTime(0.0001, time); gain.gain.exponentialRampToValueAtTime(accent ? 0.35 : 0.22, time+0.002); gain.gain.exponentialRampToValueAtTime(0.0001, time+0.045);
+  gain.gain.setValueAtTime(0.0001, time); 
+  gain.gain.exponentialRampToValueAtTime((accent ? 0.35 : 0.22) * state.volClick + 0.0001, time+0.002); 
+  gain.gain.exponentialRampToValueAtTime(0.0001, time+0.045);
   osc.connect(gain).connect(masterGain); osc.start(time); osc.stop(time+0.05);
   scheduledNodes.push(osc); osc.onended = () => { const i = scheduledNodes.indexOf(osc); if(i>-1) scheduledNodes.splice(i,1); };
 }
 
 function playBassNote(time, midi, durationSec, opts){
-  if(!state.noteAudio) return;
+  if(!state.noteAudio || state.volSynth <= 0) return;
   const osc = audioCtx.createOscillator(), filt = audioCtx.createBiquadFilter(), gain = audioCtx.createGain();
   osc.type = 'sawtooth'; osc.frequency.value = 440 * Math.pow(2, (midi-69)/12); filt.type = 'lowpass'; filt.frequency.value = opts.isGhost ? 450 : 1200; filt.Q.value = 0.5;
   
   const actualDuration = (opts.isStaccato || opts.isGhost) ? Math.min(durationSec * 0.3, 0.12) : durationSec * 0.95;
-  const attack = 0.01, decay = 0.1, peak = opts.isGhost ? 0.15 : 0.4, sustain = peak * 0.6;
+  const attack = 0.01, decay = 0.1;
+  const peak = (opts.isGhost ? 0.15 : 0.4) * state.volSynth, sustain = peak * 0.6;
 
-  gain.gain.setValueAtTime(0.0001, time); gain.gain.exponentialRampToValueAtTime(peak, time + attack);
+  gain.gain.setValueAtTime(0.0001, time); gain.gain.exponentialRampToValueAtTime(peak + 0.0001, time + attack);
   if (actualDuration > attack + decay) { 
-      gain.gain.exponentialRampToValueAtTime(sustain, time + attack + decay); gain.gain.setValueAtTime(sustain, time + actualDuration - 0.05); gain.gain.exponentialRampToValueAtTime(0.0001, time + actualDuration); 
+      gain.gain.exponentialRampToValueAtTime(sustain + 0.0001, time + attack + decay); gain.gain.setValueAtTime(sustain + 0.0001, time + actualDuration - 0.05); gain.gain.exponentialRampToValueAtTime(0.0001, time + actualDuration); 
   } else { gain.gain.exponentialRampToValueAtTime(0.0001, time + actualDuration); }
   
   osc.connect(filt).connect(gain).connect(masterGain); osc.start(time); osc.stop(time + actualDuration + 0.1);
@@ -1240,6 +1207,9 @@ function applyBpm(newBpm){
 
 safeAddListener('playPauseBtn', 'click', () => state.playing ? togglePause() : startPlayback() );
 safeAddListener('stopBtn', 'click', () => { if(state.playing) stopPlayback(); });
+
+safeAddListener('bpmDec', 'click', () => applyBpm(state.bpm - 1));
+safeAddListener('bpmInc', 'click', () => applyBpm(state.bpm + 1));
 
 document.addEventListener('keydown', (e) => {
   if (e.code === 'Space') { 
