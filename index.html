@@ -4,6 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Prática de Leitura à Primeira Vista</title>
+  
+  <!-- Ícone musical na aba do navegador -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎵</text></svg>">
+  
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -22,7 +26,22 @@
     </div>
 
     <fieldset>
-      <legend>Configuração de Leitura</legend>
+      <legend>Configurações gerais</legend>
+      <div class="row">
+        <label class="field-label">Modo de Exibição</label>
+        <select id="displayMode">
+          <option value="scroll">Rolagem Contínua</option>
+          <option value="page">Leitura Estática (Páginas)</option>
+        </select>
+      </div>
+      <div class="row" id="pageLinesRow" style="display:none;">
+        <label class="field-label">Linhas por Página</label>
+        <select id="pageLinesSelect">
+          <option value="2">2 Linhas</option>
+          <option value="3">3 Linhas</option>
+          <option value="4">4 Linhas</option>
+        </select>
+      </div>
       <div class="row">
         <label class="field-label">Clave</label>
         <select id="clefSelect">
@@ -46,17 +65,20 @@
       <div class="row">
         <label class="field-label">Posição</label>
         <select id="positionMode">
-          <option value="free" title="Usa os limites exatos configurados abaixo">Livre (usar limite abaixo)</option>
-          <option value="1">1ª posição (Contrabaixo)</option>
-          <option value="2">2ª posição (Contrabaixo)</option>
-          <option value="3">3ª posição (Contrabaixo)</option>
-          <option value="4">4ª posição (Contrabaixo)</option>
-          <option value="5">5ª posição (Contrabaixo)</option>
-          <option value="6">6ª posição (Contrabaixo)</option>
-          <option value="7">7ª posição (Contrabaixo)</option>
-          <option value="8">8ª posição (Contrabaixo)</option>
-          <option value="9">9ª posição (Contrabaixo)</option>
-          <option value="10">10ª posição (Contrabaixo)</option>
+          <option value="free">Livre (usar limite abaixo)</option>
+          <option value="0">Posição 0 (Soltas + Casas 1-4)</option>
+          <option value="1">1ª posição (Casas 1-4)</option>
+          <option value="2">2ª posição (Casas 2-5)</option>
+          <option value="3">3ª posição (Casas 3-6)</option>
+          <option value="4">4ª posição (Casas 4-7)</option>
+          <option value="5">5ª posição (Casas 5-8)</option>
+          <option value="6">6ª posição (Casas 6-9)</option>
+          <option value="7">7ª posição (Casas 7-10)</option>
+          <option value="8">8ª posição (Casas 8-11)</option>
+          <option value="9">9ª posição (Casas 9-12)</option>
+          <option value="10">10ª posição (Casas 10-13)</option>
+          <option value="11">11ª posição (Casas 11-14)</option>
+          <option value="12">12ª posição (Casas 12-15)</option>
         </select>
       </div>
       <div class="row grid2" id="rangeRow">
@@ -113,7 +135,19 @@
         <div><div class="prob-row"><label>Semicolcheia</label><span id="lblWSixteenth">0</span></div><input type="range" id="wSixteenth" min="0" max="100" value="0"></div>
         <div><div class="prob-row"><label>Notas pontuadas</label><span id="lblWDotted">0</span></div><input type="range" id="wDotted" min="0" max="100" value="0"></div>
         <div><div class="prob-row"><label>Pausas</label><span id="lblProbRest">5%</span></div><input type="range" id="probRest" min="0" max="100" value="5"></div>
-        <div><div class="prob-row"><label title="Injeta grupos de Tercinas substituindo o ritmo natural">Tercinas</label><span id="lblProbTriplet">0%</span></div><input type="range" id="probTriplet" min="0" max="100" value="0"></div>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Quiálteras</legend>
+      <div class="hint" style="margin-bottom:6px;">Grupos irregulares (0 a 100).</div>
+      <div class="col">
+        <div><div class="prob-row"><label>Tercinas de Mínima</label><span id="lblTHalf">0</span></div><input type="range" id="w_tHalf" min="0" max="100" value="0"></div>
+        <div><div class="prob-row"><label>Tercinas de Semínima</label><span id="lblTQuarter">0</span></div><input type="range" id="w_tQuarter" min="0" max="100" value="0"></div>
+        <div><div class="prob-row"><label>Tercinas de Colcheia</label><span id="lblTEighth">0</span></div><input type="range" id="w_tEighth" min="0" max="100" value="0"></div>
+        <div><div class="prob-row"><label>Tercinas de Semicolcheia</label><span id="lblTSixteenth">0</span></div><input type="range" id="w_tSixteenth" min="0" max="100" value="0"></div>
+        <div><div class="prob-row"><label>Quintinas de Colcheia</label><span id="lblQEighth">0</span></div><input type="range" id="w_qEighth" min="0" max="100" value="0"></div>
+        <div><div class="prob-row"><label>Quintinas de Semicolcheia</label><span id="lblQSixteenth">0</span></div><input type="range" id="w_qSixteenth" min="0" max="100" value="0"></div>
       </div>
     </fieldset>
 

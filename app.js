@@ -142,7 +142,6 @@ function getCenterMidiForClef(clef) {
     return 50; 
 }
 
-// CORREÇÃO PENTATONICA: array 100% diatônico (7 notas) estritamente usado para encontrar as raízes dos acordes
 function diatonicPitchClasses() {
     const steps = state.keyInfo.isMinor ? MINOR_STEPS : MAJOR_STEPS;
     return steps.map(s => (state.keyInfo.rootPc + s) % 12);
@@ -157,7 +156,6 @@ function getChordSymbol(degree) {
     return rootSpell.letter.toUpperCase() + accToStr(rootSpell.acc) + suffix;
 }
 
-// Array filtrado para a parte melódica (usado em arpejos e sequências)
 function scalePitchClasses(){ 
     const steps = state.pentatonic ? 
         (state.keyInfo.isMinor ? MINOR_PENTA_STEPS : MAJOR_PENTA_STEPS) : 
@@ -174,15 +172,17 @@ function scaleSemitones() { return state.keyInfo.isMinor ? MINOR_STEPS : MAJOR_S
 const state = {
   bpm: 60, countIn: true, noteAudio: true, clickAudio: true,
   volClick: 1.0, volSynth: 0.5, 
+  displayMode: 'scroll', pageLines: 2,
   keyInfo: KEYS[0], clef: 'bass', pentatonic: false, 
   positionMode: 'free', lowMidi: 28, highMidi: 48, strings: new Set(['E','A','D','G']), maxIntervalSemis: 12, 
   
   rhythms: { whole: 0, half: 0, quarter: 100, eighth: 0, sixteenth: 0, dotted: 0 },
+  tuplets: { tHalf: 0, tQuarter: 0, tEighth: 0, tSixteenth: 0, qEighth: 0, qSixteenth: 0 },
   rhythmCells: {
       c1_four16: 0, c2_8_16_16: 0, c3_16_16_8: 0, c4_16_8_16: 0, 
       c5_dot8_16: 0, c6_16_dot8: 0, c7_r16_three16: 0, c8_8_r16_16: 0, c9_tripletQE: 0,
   },
-  probs: { rests: 0.05, triplets: 0.0, ties: 0.0, chromatic: 0.0, ghost: 0.0, staccato: 0.0 },
+  probs: { rests: 0.05, ties: 0.0, chromatic: 0.0, ghost: 0.0, staccato: 0.0 },
   genMode: 'random', seqPattern: 'thirds',
   playing: false, paused: false, pauseTime: 0
 };
@@ -209,6 +209,41 @@ function toggleSettings(show) {
   }
 }
 
+safeAddListener('displayMode', 'change', e => { 
+    state.displayMode = e.target.value; 
+    const wrap = document.getElementById('score-wrap');
+    const plRow = document.getElementById('pageLinesRow');
+    if (state.displayMode === 'page') {
+        wrap.classList.add('page-mode');
+        wrap.classList.add(`lines-${state.pageLines}`);
+        if(plRow) plRow.style.display = 'flex';
+    } else {
+        wrap.classList.remove('page-mode', 'lines-2', 'lines-3', 'lines-4');
+        if(plRow) plRow.style.display = 'none';
+    }
+    cachedPageScale = 0; 
+    
+    stopPlayback();
+    clearTrack();
+    ensureBuffer(0);
+    resetPlayhead();
+});
+
+safeAddListener('pageLinesSelect', 'change', e => {
+    state.pageLines = parseInt(e.target.value, 10);
+    const wrap = document.getElementById('score-wrap');
+    wrap.classList.remove('lines-2', 'lines-3', 'lines-4');
+    if (state.displayMode === 'page') {
+        wrap.classList.add(`lines-${state.pageLines}`);
+    }
+    cachedPageScale = 0;
+    
+    stopPlayback();
+    clearTrack();
+    ensureBuffer(0);
+    resetPlayhead();
+});
+
 const keySelect = document.getElementById('keySelect');
 if (keySelect) {
     KEYS.forEach(k => {
@@ -217,6 +252,7 @@ if (keySelect) {
     keySelect.addEventListener('change', (e) => { 
         state.keyInfo = KEYS.find(k => k.id === e.target.value); 
         renderClefPanel(); 
+        updatePositionDescriptions();
     });
 }
 
@@ -260,6 +296,54 @@ function updateNoteRangesForClef() {
     renderClefPanel();
 }
 
+function getNoteLabel(midi) {
+    if (!state.keyInfo) return '';
+    const pc = ((midi % 12) + 12) % 12;
+    const spelling = SPELLINGS[state.keyInfo.relMajor][pc];
+    let octave = Math.floor(midi / 12) - 1;
+    if (pc === 0 && spelling.letter === 'B') octave -= 1;
+    if (pc === 11 && spelling.letter === 'C') octave += 1;
+    return spelling.letter + accToStr(spelling.acc) + octave;
+}
+
+function updatePositionDescriptions() {
+    const select = document.getElementById('positionMode');
+    if (!select) return;
+    
+    const activeStrings = STRING_ORDER.filter(s => state.strings.has(s));
+    
+    Array.from(select.options).forEach(opt => {
+        if (opt.value === 'free') {
+            opt.title = 'Usa os limites exatos configurados na Extensão de Notas.';
+            return;
+        }
+        
+        if (activeStrings.length === 0) {
+            opt.title = 'Nenhuma corda selecionada.';
+            return;
+        }
+        
+        const pos = parseInt(opt.value, 10);
+        const pool = new Set();
+        for(const s of activeStrings){
+            if (pos === 0) pool.add(OPEN_STRING_MIDI[s]); 
+            const startFret = pos === 0 ? 1 : pos;
+            for(let fret = startFret; fret <= startFret + 3; fret++) pool.add(OPEN_STRING_MIDI[s] + fret);
+        }
+        
+        const diatonicPcs = new Set(scalePitchClasses());
+        const filteredPool = Array.from(pool).filter(m => diatonicPcs.has(((m%12)+12)%12)).sort((a,b)=>a-b);
+        
+        if (filteredPool.length > 0) {
+            const lowest = filteredPool[0];
+            const highest = filteredPool[filteredPool.length - 1];
+            opt.title = `Notas da tonalidade nesta posição: ${getNoteLabel(lowest)} ao ${getNoteLabel(highest)}`;
+        } else {
+            opt.title = 'Nenhuma nota diatônica disponível nesta posição com as cordas atuais.';
+        }
+    });
+}
+
 safeAddListener('clefSelect', 'change', (e) => { 
     state.clef = e.target.value; 
     updateNoteRangesForClef();
@@ -279,7 +363,6 @@ function syncProb(id, stateKey, lblId) {
     });
 }
 syncProb('probRest', 'rests', 'lblProbRest');
-syncProb('probTriplet', 'triplets', 'lblProbTriplet');
 syncProb('probTie', 'ties', 'lblProbTie');
 syncProb('probChromatic', 'chromatic', 'lblProbChromatic');
 syncProb('probGhost', 'ghost', 'lblProbGhost');
@@ -300,6 +383,13 @@ syncWeight('wQuarter', state.rhythms, 'quarter', 'lblWQuarter');
 syncWeight('wEighth', state.rhythms, 'eighth', 'lblWEighth');
 syncWeight('wSixteenth', state.rhythms, 'sixteenth', 'lblWSixteenth');
 syncWeight('wDotted', state.rhythms, 'dotted', 'lblWDotted');
+
+syncWeight('w_tHalf', state.tuplets, 'tHalf', 'lblTHalf');
+syncWeight('w_tQuarter', state.tuplets, 'tQuarter', 'lblTQuarter');
+syncWeight('w_tEighth', state.tuplets, 'tEighth', 'lblTEighth');
+syncWeight('w_tSixteenth', state.tuplets, 'tSixteenth', 'lblTSixteenth');
+syncWeight('w_qEighth', state.tuplets, 'qEighth', 'lblQEighth');
+syncWeight('w_qSixteenth', state.tuplets, 'qSixteenth', 'lblQSixteenth');
 
 syncWeight('w_c1', state.rhythmCells, 'c1_four16', 'lblC1');
 syncWeight('w_c2', state.rhythmCells, 'c2_8_16_16', 'lblC2');
@@ -323,7 +413,10 @@ function syncVolume(id, stateKey, lblId) {
 syncVolume('volClick', 'volClick', 'lblVolClick');
 syncVolume('volSynth', 'volSynth', 'lblVolSynth');
 
-safeAddListener('pentaToggle', 'change', e => state.pentatonic = e.target.checked);
+safeAddListener('pentaToggle', 'change', e => {
+    state.pentatonic = e.target.checked;
+    updatePositionDescriptions();
+});
 
 const positionModeSel = document.getElementById('positionMode'), rangeRow = document.getElementById('rangeRow');
 if (positionModeSel && rangeRow) {
@@ -336,6 +429,7 @@ if (positionModeSel && rangeRow) {
 safeAddListener('stringsRow', 'click', e => {
   const p = e.target.closest('.pill'); if(!p) return; const s = p.dataset.string;
   if(state.strings.has(s)){ state.strings.delete(s); p.classList.remove('active'); } else { state.strings.add(s); p.classList.add('active'); }
+  updatePositionDescriptions();
 });
 
 const intervalsData = [
@@ -355,6 +449,33 @@ if (intervalSlider) {
     });
 }
 
+let cachedPageScale = 0;
+let cachedClefWidth = 0;
+
+function updatePageScale() {
+    if (state.displayMode === 'page' && measures.length > 0) {
+        const activeM = measures.find(m => m.wrapper.classList.contains('visible')) || measures[0];
+        if (activeM && activeM.div) {
+            const renderedWidth = activeM.div.getBoundingClientRect().width;
+            const originalSvgWidth = (LOGICAL_MEASURE_PX * MEASURES_PER_BLOCK + 20) * SCALE;
+            if (renderedWidth > 0) {
+                cachedPageScale = renderedWidth / originalSvgWidth;
+                const clefDiv = activeM.wrapper.querySelector('.inline-clef');
+                cachedClefWidth = clefDiv ? clefDiv.getBoundingClientRect().width : 0;
+            }
+        }
+    }
+}
+
+window.addEventListener('resize', () => { 
+    cachedPageScale = 0; 
+    if (state.displayMode === 'page' && (state.playing || state.paused)) {
+        requestAnimationFrame(() => {
+            updatePlayheadPosition(Math.max(0, getBeatFromTime(audioCtx ? audioCtx.currentTime : 0)));
+        });
+    }
+});
+
 function redrawTrackAfterThemeChange() {
     if (!state.playing) {
         clearTrack();
@@ -364,14 +485,44 @@ function redrawTrackAfterThemeChange() {
         measures = [];
         if (scoreScroll) scoreScroll.innerHTML = '';
         oldMeasures.forEach(m => {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'block-wrapper';
+            
+            if (state.displayMode === 'page') {
+                const blockIndex = Math.floor(m.startBeat / 16);
+                wrapper.classList.add('row-' + (blockIndex % state.pageLines));
+                
+                if (m.startBeat < 16 * state.pageLines) {
+                    wrapper.classList.add('visible');
+                }
+            }
+            
+            const fadeSecs = 4 * (60 / state.bpm); 
+            wrapper.style.transition = `opacity ${fadeSecs}s ease-in-out`;
+            
+            const clefDiv = document.createElement('div');
+            clefDiv.className = 'inline-clef';
+            renderInlineClef(clefDiv);
+            
             const div = document.createElement('div');
             div.className = 'measure';
-            div.style.left = m.leftPx + 'px';
-            if (scoreScroll) scoreScroll.appendChild(div);
-            m.div._blockEventsData ? renderBlockSVG(div, m.div._blockEventsData) : stopPlayback();
+            
+            wrapper.appendChild(clefDiv);
+            wrapper.appendChild(div);
+            
+            wrapper.style.left = m.leftPx + 'px';
+            if (scoreScroll) scoreScroll.appendChild(wrapper);
+            
+            m.wrapper._blockEventsData ? renderBlockSVG(div, m.wrapper._blockEventsData) : stopPlayback();
+            
+            wrapper._blockEventsData = m.wrapper._blockEventsData;
+            m.wrapper = wrapper;
             m.div = div;
             measures.push(m);
         });
+        
+        updatePageVisibility(Math.max(0, getBeatFromTime(audioCtx ? audioCtx.currentTime : 0)));
+        updatePlayheadPosition(Math.max(0, getBeatFromTime(audioCtx ? audioCtx.currentTime : 0)));
     }
 }
 
@@ -406,15 +557,16 @@ function computePitchPool(){
     if(activeStrings.length > 0){
         const pos = parseInt(state.positionMode, 10);
         for(const s of activeStrings){
-          if (pos === 1) pool.add(OPEN_STRING_MIDI[s] + 0); 
-          for(let fret=pos; fret<=pos+3; fret++) pool.add(OPEN_STRING_MIDI[s] + fret);
+          if (pos === 0) pool.add(OPEN_STRING_MIDI[s]); 
+          const startFret = pos === 0 ? 1 : pos;
+          for(let fret = startFret; fret <= startFret + 3; fret++) pool.add(OPEN_STRING_MIDI[s] + fret);
         }
     }
   } else {
     for(let m = state.lowMidi; m <= state.highMidi; m++) pool.add(m);
   }
   
-  return Array.from(pool).filter(m => m >= state.lowMidi && m <= state.highMidi).sort((a,b)=>a-b);
+  return Array.from(pool).sort((a,b)=>a-b);
 }
 
 function diatonicFilter(pool){ 
@@ -492,12 +644,25 @@ function getPedalNote(pool, diatonicPool) {
 
 /**
  * ==========================================================================
- * MÓDULO 7: GERADOR RÍTMICO CENTRAL
+ * MÓDULO 7: GERADOR RÍTMICO CENTRAL E QUIÁLTERAS
  * ==========================================================================
  */
 
 function cellNote(dur, isDotted){ return { durQuarters: dur, isDotted: !!isDotted, isRest: Math.random() < state.probs.rests }; }
 function cellRest(dur){ return { durQuarters: dur, isRest: true }; }
+
+function buildTuplet(num_notes, notes_occupied, baseDur, durQuarters) {
+    const evs = [];
+    const tupletId = Math.random().toString(36).substr(2, 9);
+    for (let i = 0; i < num_notes; i++) {
+        evs.push({
+            durQuarters: durQuarters,
+            tupletDef: { num_notes, notes_occupied, baseDur, id: tupletId },
+            isRest: Math.random() < state.probs.rests
+        });
+    }
+    return evs;
+}
 
 const ESSENTIAL_CELL_BUILDERS = {
   c1_four16: () => [cellNote(0.25), cellNote(0.25), cellNote(0.25), cellNote(0.25)].map(e => ({ ...e, isRest: false })),
@@ -508,15 +673,20 @@ const ESSENTIAL_CELL_BUILDERS = {
   c6_16_dot8: () => [{ durQuarters:0.25, isRest:false }, { durQuarters:0.75, isDotted:true, isRest:false }],
   c7_r16_three16: () => [cellRest(0.25), { durQuarters:0.25, isRest:false }, { durQuarters:0.25, isRest:false }, { durQuarters:0.25, isRest:false }],
   c8_8_r16_16: () => [{ durQuarters:0.5, isRest:false }, cellRest(0.25), { durQuarters:0.25, isRest:false }],
-  c9_tripletQE: () => [
-    { durQuarters: 2/3, tripletGroup: 2, isRest: false },
-    { durQuarters: 1/3, tripletGroup: 1, isRest: false },
-  ],
+  c9_tripletQE: () => {
+    const tid = Math.random().toString(36).substr(2, 9);
+    return [
+      { durQuarters: 2/3, tupletDef: {num_notes: 3, notes_occupied: 2, baseDur: 'q', id: tid}, isRest: false },
+      { durQuarters: 1/3, tupletDef: {num_notes: 3, notes_occupied: 2, baseDur: '8', id: tid}, isRest: false },
+    ];
+  },
 };
 
 function hasAnyRhythmFigureEnabled(){
   const r = state.rhythms;
+  const t = state.tuplets;
   if (r.whole > 0 || r.half > 0 || r.quarter > 0 || r.eighth > 0 || r.sixteenth > 0) return true;
+  if (t.tHalf > 0 || t.tQuarter > 0 || t.tEighth > 0 || t.tSixteenth > 0 || t.qEighth > 0 || t.qSixteenth > 0) return true;
   return Object.keys(ESSENTIAL_CELL_BUILDERS).some(key => state.rhythmCells[key] > 0);
 }
 
@@ -528,30 +698,26 @@ function generateRhythmForMeasure(){
 
   while (currentBeat < 4.0) {
     const beatsLeft = 4.0 - currentBeat;
-    
-    if (beatsLeft >= 1.0 && Math.random() < state.probs.triplets) {
-        for (let i = 0; i < 3; i++) events.push({ durQuarters: 1/3, tripletGroup: 1, isRest: Math.random() < state.probs.rests });
-        currentBeat += 1.0;
-        continue;
-    }
-
     const candidates = [];
     const onStableBoundary = (Math.abs(currentBeat - 0.0) < 0.01 || Math.abs(currentBeat - 2.0) < 0.01);
 
-    if (Math.abs(currentBeat - 0.0) < 0.01 && beatsLeft >= 3.99 && state.rhythms.whole > 0) {
-        candidates.push({ builder: () => [cellNote(4.0)], weight: state.rhythms.whole });
+    if (beatsLeft >= 3.99 && Math.abs(currentBeat - 0.0) < 0.01) {
+        if (state.rhythms.whole > 0) candidates.push({ builder: () => [cellNote(4.0)], weight: state.rhythms.whole });
+        if (state.tuplets.tHalf > 0) candidates.push({ builder: () => buildTuplet(3, 2, 'h', 4/3), weight: state.tuplets.tHalf });
     }
     
-    if (onStableBoundary && beatsLeft >= 1.99 && state.rhythms.half > 0) {
-        candidates.push({ builder: () => [cellNote(2.0)], weight: state.rhythms.half });
-        
-        if (state.rhythms.dotted > 0 && Math.abs(currentBeat - 0.0) < 0.01 && beatsLeft >= 2.99) {
-            candidates.push({ builder: () => [cellNote(3.0, true)], weight: (state.rhythms.half + state.rhythms.dotted) / 2 });
+    if (beatsLeft >= 1.99 && onStableBoundary) {
+        if (state.rhythms.half > 0) {
+            candidates.push({ builder: () => [cellNote(2.0)], weight: state.rhythms.half });
+            if (state.rhythms.dotted > 0 && Math.abs(currentBeat - 0.0) < 0.01 && beatsLeft >= 2.99) {
+                candidates.push({ builder: () => [cellNote(3.0, true)], weight: (state.rhythms.half + state.rhythms.dotted) / 2 });
+            }
         }
-    }
-    
-    if (onStableBoundary && beatsLeft >= 1.99 && state.rhythms.quarter > 0 && state.rhythms.eighth > 0 && state.rhythms.dotted > 0) {
-        candidates.push({ builder: () => [cellNote(1.5, true), cellNote(0.5)], weight: (state.rhythms.quarter + state.rhythms.eighth + state.rhythms.dotted) / 3 });
+        if (state.rhythms.quarter > 0 && state.rhythms.eighth > 0 && state.rhythms.dotted > 0) {
+            candidates.push({ builder: () => [cellNote(1.5, true), cellNote(0.5)], weight: (state.rhythms.quarter + state.rhythms.eighth + state.rhythms.dotted) / 3 });
+        }
+        if (state.tuplets.tQuarter > 0) candidates.push({ builder: () => buildTuplet(3, 2, 'q', 2/3), weight: state.tuplets.tQuarter });
+        if (state.tuplets.qEighth > 0) candidates.push({ builder: () => buildTuplet(5, 4, '8', 2/5), weight: state.tuplets.qEighth });
     }
     
     if (beatsLeft >= 0.99) {
@@ -569,11 +735,18 @@ function generateRhythmForMeasure(){
             }
         }
 
+        if (state.tuplets.tEighth > 0) candidates.push({ builder: () => buildTuplet(3, 2, '8', 1/3), weight: state.tuplets.tEighth });
+        if (state.tuplets.qSixteenth > 0) candidates.push({ builder: () => buildTuplet(5, 4, '16', 1/5), weight: state.tuplets.qSixteenth });
+
         Object.keys(ESSENTIAL_CELL_BUILDERS).forEach(key => {
             if (state.rhythmCells[key] > 0) {
                 candidates.push({ builder: ESSENTIAL_CELL_BUILDERS[key], weight: state.rhythmCells[key] });
             }
         });
+    }
+    
+    if (beatsLeft >= 0.49) {
+        if (state.tuplets.tSixteenth > 0) candidates.push({ builder: () => buildTuplet(3, 2, '16', 1/6), weight: state.tuplets.tSixteenth });
     }
 
     if (candidates.length === 0) {
@@ -637,8 +810,8 @@ function buildMeasure(isLastMeasureInBlock = false){
   let mergedRhythm = [];
   for (let i = 0; i < rawRhythm.length; i++) {
       let ev = Object.assign({}, rawRhythm[i]);
-      if (!ev.isRest && !ev.tripletGroup) {
-          while (i < rawRhythm.length - 1 && !rawRhythm[i+1].isRest && !rawRhythm[i+1].tripletGroup && Math.random() < state.probs.ties) {
+      if (!ev.isRest && !ev.tupletDef) {
+          while (i < rawRhythm.length - 1 && !rawRhythm[i+1].isRest && !rawRhythm[i+1].tupletDef && Math.random() < state.probs.ties) {
               ev.durQuarters += rawRhythm[i+1].durQuarters;
               i++;
           }
@@ -684,7 +857,7 @@ function buildMeasure(isLastMeasureInBlock = false){
   let sliced = [];
   let currentTime = 0;
   for (let ev of mergedRhythm) {
-      if (ev.isRest || ev.tripletGroup) {
+      if (ev.isRest || ev.tupletDef) {
           sliced.push(ev);
           currentTime += ev.durQuarters;
           continue;
@@ -728,7 +901,7 @@ function buildMeasure(isLastMeasureInBlock = false){
   const VALID_DURS = [4.0, 3.0, 2.0, 1.5, 1.0, 0.75, 0.5, 0.25];
   
   for (let ev of sliced) {
-      if (ev.isRest || ev.tripletGroup) {
+      if (ev.isRest || ev.tupletDef) {
           factored.push(ev);
           continue;
       }
@@ -807,7 +980,7 @@ function buildBlock() {
 
 /**
  * ==========================================================================
- * MÓDULO 9: RENDERIZAÇÃO GRÁFICA VEXFLOW (BLINDADO CONTRA SETNOTE ERROR)
+ * MÓDULO 9: RENDERIZAÇÃO GRÁFICA VEXFLOW
  * ==========================================================================
  */
 function durToVexCode(q){
@@ -839,6 +1012,18 @@ function addNoteModifier(note, modifier, index){
   else note.addModifier(index, modifier);
 }
 
+function renderInlineClef(container) {
+    const VF = Vex.Flow, renderer = new VF.Renderer(container, VF.Renderer.Backends.SVG);
+    const logicalWidth = 160; 
+    renderer.resize(logicalWidth * SCALE, 150 * SCALE);
+    const ctx = renderer.getContext(); ctx.scale(SCALE, SCALE);
+    ctx.setFillStyle(getComputedStyle(document.documentElement).getPropertyValue('--text-0').trim() || '#e9ecf1');
+    ctx.setStrokeStyle(getComputedStyle(document.documentElement).getPropertyValue('--staff').trim() || '#8a93a3');
+    const stave = new VF.Stave(0, 10, logicalWidth); 
+    stave.addClef(state.clef).addKeySignature(state.keyInfo.vexKey); 
+    stave.setContext(ctx).draw();
+}
+
 function renderBlockSVG(container, blockEvents){
   const VF = Vex.Flow;
   const logicalWidth = LOGICAL_MEASURE_PX * MEASURES_PER_BLOCK; 
@@ -862,17 +1047,15 @@ function renderBlockSVG(container, blockEvents){
       stave.setContext(ctx).draw();
 
       const vexNotes = [], tuplets = [], beams = [];
-      let currentBeat = 0, curTripletGroup = [], curTripletDur = 0;
+      let currentBeat = 0, curTupletGroup = [];
       const beatGroups = {}; 
 
-      events.forEach((ev) => {
+      events.forEach((ev, i) => {
         let vexKey = ev.isRest ? restKeyForClef(state.clef) : midiToVexKey(ev.midi).key;
         
         let baseDur;
-        if (ev.tripletGroup) {
-            if (ev.tripletGroup === 2) baseDur = 'q';
-            else if (ev.tripletGroup === 1) baseDur = '8';
-            else baseDur = '16';
+        if (ev.tupletDef) {
+            baseDur = ev.tupletDef.baseDur;
         } else {
             baseDur = durToVexCode(ev.durQuarters);
         }
@@ -880,7 +1063,8 @@ function renderBlockSVG(container, blockEvents){
         const durCode = baseDur + (ev.isRest ? 'r' : '');
         const noteOpts = { keys:[vexKey], duration: durCode, clef: state.clef, auto_stem: true };
         
-        if(ev.isGhost && !ev.isRest) noteOpts.type = 'x';
+        if(ev.isGhost && !ev.isRest) noteOpts.type = 'm';
+        
         const note = new VF.StaveNote(noteOpts);
         
         if(ev.isDotted) {
@@ -902,17 +1086,19 @@ function renderBlockSVG(container, blockEvents){
         vexNotes.push(note);
         allVexNotes.push(ev); 
         
-        if(ev.tripletGroup) { 
-            curTripletGroup.push(ev);
-            curTripletDur += ev.durQuarters; 
+        if(ev.tupletDef) { 
+            curTupletGroup.push(ev);
+            const nextEv = events[i + 1];
             
-            if(curTripletDur >= 0.99) {
-                const notes = curTripletGroup.map(e => e._vexNote);
+            if (!nextEv || !nextEv.tupletDef || nextEv.tupletDef.id !== ev.tupletDef.id) {
+                const notes = curTupletGroup.map(e => e._vexNote);
+                tuplets.push(new VF.Tuplet(notes, { 
+                    num_notes: ev.tupletDef.num_notes, 
+                    notes_occupied: ev.tupletDef.notes_occupied 
+                }));
                 
-                tuplets.push(new VF.Tuplet(notes, { num_notes: 3, notes_occupied: 2 }));
-                
-                const realEvents = curTripletGroup.filter(e => !e.isRest);
-                const allShort = curTripletGroup.every(e => e.tripletGroup <= 1);
+                const realEvents = curTupletGroup.filter(e => !e.isRest);
+                const allShort = curTupletGroup.every(e => ['8', '16', '32'].includes(e.tupletDef.baseDur));
                 
                 if (realEvents.length >= 1 && allShort) {
                     if (realEvents.length >= 2) {
@@ -923,22 +1109,20 @@ function renderBlockSVG(container, blockEvents){
                             if (e.midi < minMidi) minMidi = e.midi;
                         });
                         const stemDir = (maxMidi + minMidi) / 2 >= centerMidi ? -1 : 1;
-                        curTripletGroup.forEach(e => {
+                        curTupletGroup.forEach(e => {
                             if (!e.isRest) e._vexNote.setStemDirection(stemDir);
                         });
                     }
                     
-                    // CORREÇÃO: Apara as pausas das extremidades ANTES de desenhar as hastes (beams) nas quiálteras
-                    let start = 0; while(start < curTripletGroup.length && curTripletGroup[start].isRest) start++;
-                    let end = curTripletGroup.length - 1; while(end >= 0 && curTripletGroup[end].isRest) end--;
+                    let start = 0; while(start < curTupletGroup.length && curTupletGroup[start].isRest) start++;
+                    let end = curTupletGroup.length - 1; while(end >= 0 && curTupletGroup[end].isRest) end--;
                     if (end > start) {
-                        const beamEvents = curTripletGroup.slice(start, end + 1);
+                        const beamEvents = curTupletGroup.slice(start, end + 1);
                         beams.push(new VF.Beam(beamEvents.map(e => e._vexNote)));
                     }
                 }
                 
-                curTripletGroup = []; 
-                curTripletDur = 0;
+                curTupletGroup = []; 
             } 
         } 
         else if (ev.durQuarters < 1.0) {
@@ -1012,7 +1196,6 @@ function renderClefPanel(){
 const scoreScroll = document.getElementById('score-scroll');
 const PLAYHEAD_X = 240; 
 const ph = document.getElementById('playhead');
-if(ph) ph.style.left = PLAYHEAD_X + 'px';
 
 let measures = []; let cumulativeBeats = 0; let globalEventTimeline = []; 
 let rafId = null; let anchorTime = 0; let anchorBeat = 0;  
@@ -1020,22 +1203,76 @@ let rafId = null; let anchorTime = 0; let anchorBeat = 0;
 function getBeatFromTime(t) { return anchorBeat + (t - anchorTime) * (state.bpm / 60); }
 function getTimeFromBeat(b) { return anchorTime + (b - anchorBeat) * (60 / state.bpm); }
 
+function resetPlayhead() {
+    if (!ph) return;
+    if (state.displayMode === 'scroll') {
+        ph.style.transform = 'none';
+        ph.style.left = PLAYHEAD_X + 'px';
+        ph.style.top = '0px';
+        ph.style.bottom = '0px';
+        ph.style.height = '100%';
+    } else {
+        ph.style.transform = `translate(-999px, -999px)`;
+        ph.style.left = '0px';
+        ph.style.top = '0px';
+        ph.style.bottom = 'auto';
+        ph.style.height = (150 * SCALE) + 'px'; 
+    }
+}
+
+function updateBlockTransitions() {
+    const fadeSecs = 4 * (60 / state.bpm); 
+    measures.forEach(m => {
+        if (m.wrapper) m.wrapper.style.transition = `opacity ${fadeSecs}s ease-in-out`;
+    });
+}
+
 function clearTrack(){
-  if(scoreScroll) scoreScroll.innerHTML = ''; 
+  if(scoreScroll) {
+      scoreScroll.innerHTML = ''; 
+      scoreScroll.style.transform = 'none';
+  }
   measures = []; cumulativeBeats = 0; globalEventTimeline = [];
   lastMidi = null; pendingTieMidi = null; grooveState.pattern = null; grooveState.measureInCycle = 0;
   seqIndex = 0; seqStep = 0; seqDir = 1; pedalIsRoot = true; pedalScaleIdx = 0; pedalDir = 1;
+  resetPlayhead();
 }
 
 function generateAndScheduleNextBlock(){
   const blockEvents = buildBlock(); 
   
-  const div = document.createElement('div'); div.className = 'measure'; 
+  const wrapper = document.createElement('div');
+  wrapper.className = 'block-wrapper';
+  
+  // Garante a visibilidade e a posição correta das linhas iniciais, evitando sobreposição com o gerador pausado
+  if (state.displayMode === 'page') {
+      const blockIndex = Math.floor(cumulativeBeats / 16);
+      wrapper.classList.add('row-' + (blockIndex % state.pageLines));
+      
+      if (cumulativeBeats < 16 * state.pageLines) {
+          wrapper.classList.add('visible');
+      }
+  }
+  
+  const fadeSecs = 4 * (60 / state.bpm); 
+  wrapper.style.transition = `opacity ${fadeSecs}s ease-in-out`;
+  
+  const clefDiv = document.createElement('div');
+  clefDiv.className = 'inline-clef';
+  renderInlineClef(clefDiv);
+  
+  const div = document.createElement('div'); 
+  div.className = 'measure'; 
+  
+  wrapper.appendChild(clefDiv);
+  wrapper.appendChild(div);
+  
   const leftPx = PLAYHEAD_X + cumulativeBeats * PX_PER_QUARTER; 
-  div.style.left = leftPx + 'px'; 
-  if(scoreScroll) scoreScroll.appendChild(div);
+  wrapper.style.left = leftPx + 'px'; 
+  if(scoreScroll) scoreScroll.appendChild(wrapper);
   
   renderBlockSVG(div, blockEvents);
+  wrapper._blockEventsData = blockEvents;
 
   let cursorBeat = cumulativeBeats;
   for (const events of blockEvents) {
@@ -1051,15 +1288,101 @@ function generateAndScheduleNextBlock(){
       }
   }
   
-  measures.push({ div, leftPx, startBeat: cumulativeBeats }); 
+  measures.push({ wrapper, div, leftPx, startBeat: cumulativeBeats }); 
   cumulativeBeats += MEASURE_BEATS * MEASURES_PER_BLOCK; 
 }
 
-function ensureBuffer(currentBeat){ while(cumulativeBeats < currentBeat + 32) generateAndScheduleNextBlock(); }
+function ensureBuffer(currentBeat) { 
+    const bufferBeats = state.displayMode === 'page' ? Math.max(32, state.pageLines * 16 + 16) : 32;
+    while(cumulativeBeats < currentBeat + bufferBeats) {
+        generateAndScheduleNextBlock(); 
+    }
+}
 
-function pruneOffscreen(scrollBeats){ 
-    while(measures.length && (measures[0].startBeat + 16) * PX_PER_QUARTER < (scrollBeats*PX_PER_QUARTER) - PLAYHEAD_X - 50) {
-        measures.shift().div.remove(); 
+function pruneOffscreen(activeBeat){ 
+    const beatsPerPage = 16;
+    const activeBlockIndex = Math.floor(activeBeat / beatsPerPage);
+    
+    while(measures.length > 0) {
+        const m = measures[0];
+        let shouldPrune = false;
+        
+        if (state.displayMode === 'scroll') {
+            shouldPrune = (m.startBeat + 16) * PX_PER_QUARTER < (activeBeat * PX_PER_QUARTER) - PLAYHEAD_X - 50;
+        } else {
+            const blockIndex = Math.floor(m.startBeat / beatsPerPage);
+            shouldPrune = blockIndex < activeBlockIndex - state.pageLines;
+        }
+        
+        if (shouldPrune) {
+            m.wrapper.remove();
+            measures.shift();
+        } else {
+            break;
+        }
+    }
+}
+
+function updatePageVisibility(activeBeat) {
+    if (state.displayMode !== 'page') {
+        measures.forEach(m => m.wrapper.classList.add('visible'));
+        return;
+    }
+    
+    const beatsPerPage = 16; 
+    const fadeBeats = 4; 
+    const L = state.pageLines;
+    
+    measures.forEach(m => {
+        const blockIndex = Math.floor(m.startBeat / beatsPerPage);
+        
+        let fadeInStartBeat;
+        if (blockIndex < L) {
+            fadeInStartBeat = -999;
+        } else {
+            fadeInStartBeat = (blockIndex - L + 1) * beatsPerPage + fadeBeats;
+        }
+        
+        const fadeOutStartBeat = (blockIndex + 1) * beatsPerPage;
+        
+        if (activeBeat >= fadeInStartBeat && activeBeat < fadeOutStartBeat) {
+            m.wrapper.classList.add('visible');
+        } else {
+            m.wrapper.classList.remove('visible');
+        }
+        
+        const row = blockIndex % L;
+        for(let i=0; i<4; i++) m.wrapper.classList.remove('row-' + i);
+        m.wrapper.classList.add('row-' + row);
+    });
+}
+
+function updatePlayheadPosition(activeBeat) {
+    if (!ph) return;
+    
+    if (state.displayMode === 'page') {
+        scoreScroll.style.transform = 'none';
+        
+        const beatsPerPage = 16;
+        const activeBlockIndex = Math.floor(activeBeat / beatsPerPage);
+        const activeMeasure = measures.find(m => Math.floor(m.startBeat / beatsPerPage) === activeBlockIndex);
+        
+        if (activeMeasure && activeBeat >= 0) {
+            if (cachedPageScale === 0) updatePageScale();
+            
+            const localBeat = activeBeat - activeMeasure.startBeat;
+            const progressPx = localBeat * PX_PER_QUARTER * cachedPageScale;
+            const phX = activeMeasure.wrapper.offsetLeft + cachedClefWidth + progressPx;
+            const svgHeight = 150 * SCALE * cachedPageScale;
+            const phY = activeMeasure.wrapper.offsetTop + (activeMeasure.wrapper.offsetHeight - svgHeight) / 2;
+            
+            ph.style.transform = `translate(${phX}px, ${phY}px)`;
+            ph.style.height = svgHeight + 'px';
+        } else {
+            ph.style.transform = `translate(-999px, -999px)`;
+        }
+    } else {
+        scoreScroll.style.transform = `translateX(${-activeBeat * PX_PER_QUARTER}px)`;
     }
 }
 
@@ -1068,8 +1391,10 @@ function animationLoop(){
   const currentBeat = getBeatFromTime(audioCtx.currentTime); 
   const activeBeat = Math.max(0, currentBeat); 
   
-  if(scoreScroll) scoreScroll.style.transform = `translateX(${-activeBeat * PX_PER_QUARTER}px)`;
-  ensureBuffer(activeBeat); pruneOffscreen(activeBeat + PLAYHEAD_X/PX_PER_QUARTER);
+  updatePageVisibility(activeBeat);
+  updatePlayheadPosition(activeBeat);
+  ensureBuffer(activeBeat); 
+  pruneOffscreen(activeBeat);
   
   const flash = document.getElementById('countin-flash');
   if(flash) {
@@ -1196,7 +1521,6 @@ function stopPlayback(){
   const st = document.getElementById('status'); if(st) st.textContent = 'pronto';
   
   stopAllAudioNodes(); 
-  if(scoreScroll) scoreScroll.style.transform = 'translateX(0px)'; 
   clearTrack();
 }
 
@@ -1207,6 +1531,7 @@ function applyBpm(newBpm){
   state.bpm = nextBpm; 
   const bS = document.getElementById('bpmSlider'); if(bS) bS.value = nextBpm; 
   const bR = document.getElementById('bpmReadout'); if(bR) bR.value = nextBpm;
+  updateBlockTransitions();
 }
 
 safeAddListener('playPauseBtn', 'click', () => state.playing ? togglePause() : startPlayback() );
@@ -1261,5 +1586,8 @@ function wireToggle(id, key){
     b.addEventListener('click', () => { state[key] = !state[key]; b.classList.toggle('on', state[key]); }); 
 }
 wireToggle('countInBtn','countIn'); wireToggle('noteAudioBtn','noteAudio'); wireToggle('clickAudioBtn','clickAudio');
+
+resetPlayhead();
+updatePositionDescriptions();
 
 } // fim initApp()
